@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a0e2a" />
+  <title>Under the Same Sky ✷</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Caveat:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css?v=179" />
+</head>
+<body>
+  <!-- Canvas for the living starfield, shooting stars, and stardust -->
+  <canvas id="fx-canvas"></canvas>
+
+  <!-- The moon -->
+  <div id="moon" class="moon" aria-hidden="true"></div>
+
+  <!-- Floating music toggle -->
+  <button id="music-toggle" class="music-toggle" aria-label="Toggle music" title="Toggle music">
+    <span class="music-icon">♪</span>
+  </button>
+
+  <!-- little spinning vinyl (spins while music plays) + now-playing label -->
+  <div id="vinyl" class="vinyl" aria-hidden="true"></div>
+  <div id="now-playing" class="now-playing" aria-hidden="true">
+    <span class="np-text"></span>
+    <button id="song-next" class="song-next" aria-label="Next song" title="Next song">⏭</button>
+  </div>
+
+  <!-- Progress (constellations lit) -->
+  <div id="progress" class="progress" aria-hidden="true"></div>
+
+  <!-- The experience mounts here -->
+  <main id="stage" class="stage" role="main"></main>
+
+  <!-- Sky lanterns float above the stage for popping -->
+  <div id="lantern-layer" class="lantern-layer" aria-hidden="true"></div>
+
+  <audio id="bg-song" loop preload="auto"></audio>
+
+  <script src="js/config.js?v=179"></script>
+  <script src="js/sky.js?v=179"></script>
+  <script src="js/app.js?v=179"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+NOTES — real details to weave into the birthday sky
+(paste more here anytime; I'll turn them into constellations / finale lines)
+
+WHO
+- Her name: [fill in]
+- Loves: the sky & stars ✷
+
+INSIDE JOKES / MOMENTS
+1. The rice 🌾
+   - She loves the fragrant rice you can only get up north.
+   - Every trip to Raipur, she brings a bag back to Bangalore.
+   - When she can't go, her mum parcels it down.
+   - She joked she'll start a rice business; I said "hire me, I'll happily
+     work under you."
+   -> USED IN: constellation "The rice empire" (config.js -> chapters, id:"rice")
+
+2. [next inside joke / moment]
+3. [something she said about the sky / stars — use her own words if possible]
+4. [how you two actually started talking]
+
+FINALE — the real message
+- [what you actually want to say to her on her birthday]
+
+TODO
+- [ ] add the song file to /assets and set songPath in config.js (doing last)
+- [ ] fill in her name in config.js (herName) and your name (yourName)
+
