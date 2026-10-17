@@ -21,7 +21,7 @@ const CONFIG = {
 
   // ⚙️ DEV ONLY: keeps the finale star unlocked so you don't have to click
   //    through every constellation while building. SET TO false BEFORE SHARING.
-  devUnlockFinale: false,
+  devUnlockFinale: true,
 
   // ---- The song -----------------------------------------------------------
   // Download the song, drop the file in /assets, then put the filename here.
@@ -224,7 +224,7 @@ const CONFIG = {
       "(Also, Mahii, do give podcasting a try someday, will you? The way you put things into words, the lihaaz you have when you speak… I genuinely think you'd be so good at it)",
       "One thing I really like about you is how thoughtfully you express yourself, and how you seem to give people the space to be themselves around you. There's a certain warmth in the way you carry yourself that I find genuinely lovely. Pata nahi if you realise it yourself, but I think that's a pretty special thing to have.",
       "Somewhere along the way, you've reminded me what it feels like to smile without thinking about it, and that life's too short to go through it half-present.",
-      "You once said you shouldn’t matter so much to me. But honestly, you do. At least to me, you do. I guess I just wanted you to know that there are so many little things about you that are genuinely easy to appreciate. The way you express yourself, the warmth you bring into a conversation, the little things that make you who you are. I think those things are pretty special, and I'm glad I've gotten to know that side of you.",
+      "You once said you shouldn’t matter so much to me. But honestly, you do. At least to me, you do. And I guess there isn't always a rationale for why someone comes to mean something to us. Sometimes, it just happens, quietly and without us even realising when. You find yourself caring, finding joy in the little things, and being glad that a person crossed your path. I think that's what happened here, and I'm genuinely glad it did.",
       "Happy birthday, {her}. ☀️",
       "I hope the world never ceases to celebrate you, that life gives you a thousand reasons to smile, and that you always find yourself surrounded by the kind of love and happiness you deserve.",
     ],
@@ -248,6 +248,7 @@ const CONFIG = {
   // She taps "there's more" after the P.S. and the whole sky goes off.
   grandFinale: {
     //kicker: "okay, THIS is the last one",
+    kicker: "one last thing, birthday girl ♡",
     title: "Happy Birthday",     // herName + 🎂 added automatically
     // one message per celebration (balloons -> stars -> lanterns -> swarm); each
     // "Celebrate again" shows the next. After the last it loops back to the first.

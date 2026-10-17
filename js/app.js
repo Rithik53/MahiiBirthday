@@ -1296,6 +1296,7 @@
   function renderFinale() {
     currentScreen = "finale";
     showProgress(false);
+    stopGrandMusic();   // if we came back from the grand finale, stop its song
     // continue the song(s) already started on the wish screen; only start if needed
     if (CONFIG.finale.songs && CONFIG.finale.songs.length) {
       if (playlist !== CONFIG.finale.songs) startChapterPlaylist(CONFIG.finale.songs);
@@ -1463,7 +1464,7 @@
     // THE SHOW: everything, everywhere, all at once — replayable, always grand.
     // `long` (used only on the very first show) runs ~55s: gentle open, a steady
     // pleasant middle (spaced-out, never a mess), then the big barrage at the end.
-    function bigShow(theme, floater, long) {
+    function bigShow(theme, floater, long, floatDur) {
      try {
       const base = (CONFIG.theme && CONFIG.theme.lanternCount) || 14;
 
@@ -1471,14 +1472,14 @@
         // ---- the long first show (~55s): same lively energy as the short show,
         //      just sustained — concurrent bursts, jitter, flashes throughout ----
         SKY.fireworksShow(38000, 2.4);     // full density, sustained for ~38s
-        SKY.launchFloaters(jitI(base + 10, 2), floater);
+        SKY.launchFloaters(jitI(base + 10, 2), floater, false, floatDur);
 
         // floaters drift up steadily the whole way through
         let fl = 1600;
         const flTimes = [];
         while (fl < 36000) { flTimes.push(fl); fl += 1600; }
         flTimes.forEach((t) =>
-          setTimeout(() => { try { SKY.launchFloaters(jitI(9, 2), floater); } catch (e) {} }, jit(t, 250)));
+          setTimeout(() => { try { SKY.launchFloaters(jitI(9, 2), floater, false, floatDur); } catch (e) {} }, jit(t, 250)));
 
         // rolling peony clusters every ~1.6s across the show (no screen flashes)
         for (let t = 1500; t <= 35000; t += 1600) {
@@ -1496,16 +1497,16 @@
         [36000, 36800, 37600].forEach((t) =>
           setTimeout(() => { try { SKY.fireworkCluster(jitI(8, 2)); } catch (e) {} }, jit(t, 220)));
         setTimeout(() => {
-          try { SKY.fireworkCluster(jitI(12, 2)); shake(jitI(650, 120)); SKY.flash(jit(0.26, 0.05)); SKY.launchFloaters(jitI(14, 2), floater); } catch (e) { /* ignore */ }
+          try { SKY.fireworkCluster(jitI(12, 2)); shake(jitI(650, 120)); SKY.flash(jit(0.26, 0.05)); SKY.launchFloaters(jitI(14, 2), floater, false, floatDur); } catch (e) { /* ignore */ }
         }, jit(38000, 150));
         return;
       }
 
       // ---- the short replay show (~23s) — peonies, no screen flashes ----
       SKY.fireworksShow(20000, 2.4);        // dense, sustained fireworks
-      SKY.launchFloaters(jitI(base + 10, 2), floater);
+      SKY.launchFloaters(jitI(base + 10, 2), floater, false, floatDur);
       [1600, 3200, 4800, 6400, 8000, 9600, 11200, 12800, 14400, 16000].forEach((t) =>
-        setTimeout(() => { try { SKY.launchFloaters(jitI(9, 2), floater); } catch (e) {} }, jit(t, 250)));
+        setTimeout(() => { try { SKY.launchFloaters(jitI(9, 2), floater, false, floatDur); } catch (e) {} }, jit(t, 250)));
 
       // rolling peony clusters through the show (no flashes)
       [1500, 3000, 4500, 6000, 7500, 9000, 10500, 12000, 13500, 15000].forEach((t) =>
@@ -1521,16 +1522,20 @@
       [17000, 17800, 18600].forEach((t) =>
         setTimeout(() => { try { SKY.fireworkCluster(jitI(8, 2)); } catch (e) {} }, jit(t, 200)));
       setTimeout(() => {
-        try { SKY.fireworkCluster(jitI(12, 2)); shake(jitI(620, 110)); SKY.flash(jit(0.26, 0.05)); SKY.launchFloaters(jitI(14, 2), floater); } catch (e) { /* ignore */ }
+        try { SKY.fireworkCluster(jitI(12, 2)); shake(jitI(620, 110)); SKY.flash(jit(0.26, 0.05)); SKY.launchFloaters(jitI(14, 2), floater, false, floatDur); } catch (e) { /* ignore */ }
       }, jit(20000, 150));
      } catch (e) { /* ignore */ }
     }
 
-    function runShow() {
+    function runShow(firstRun) {
       const theme = SHOW_THEMES[cycle % SHOW_THEMES.length];
       const floater = FLOATERS[cycle % FLOATERS.length];
       const msgIdx = cycle % MESSAGES.length;          // which message/screen this is
       const isLastMsg = msgIdx === MESSAGES.length - 1;
+      // make earlier screens' floaters linger so all 4 types coexist by screen 4:
+      // screen 1 ~60s, screens 2-3 ~45s, screen 4 = default quick rise
+      const FLOAT_DURS = [60, 45, 45];
+      const floatDur = FLOAT_DURS[msgIdx];             // undefined on the last -> default
       buildLines(cycle);         // this celebration's own message (hidden until reveal)
       cycle++;
 
@@ -1542,47 +1547,63 @@
       // only the final screen offers "watch the sky again" + the Spotify link
       replay.style.display = isLastMsg ? "" : "none";
       try { SKY.setFireworkTheme(theme); SKY.setPalette(theme); } catch (e) { /* ignore */ }
-      // message starts hidden (buildLines created fresh, un-shown lines)
+      // message + buttons start hidden
       row.style.visibility = "hidden";
       if (spotifyLink) { spotifyLink.style.visibility = "hidden"; spotifyLink.classList.remove("pop-in"); }
-      // her name forms hidden; a swarm of butterflies covers the centre, then
-      // scatters to uncover "Mahii" in the stars, and the show erupts
-      try { SKY.clearName(); SKY.nameInStars(CONFIG.herName, true); } catch (e) { /* ignore */ }
-      const swarmCount = window.innerWidth <= 600 ? 40 : 220;   // phones get fewer so it stays smooth
-      butterflyReveal(
-        swarmCount,
-        () => {   // name appears -> hold (song settles) -> golden shower -> then the big show
+
+      // runs the fireworks + reveals the message and (mid-show) the button
+      const launch = () => {
+        const firstShow = firstRun;                                 // the very first run is the long one
+        const SHOW_LEN = firstShow ? 40000 : 23000;                 // first show ~40s; replays ~23s
+        try { duckGrandMusic(); } catch (e) { /* ignore */ }
+        try { SKY.bigGoldFirework(); } catch (e) { /* ignore */ }   // opening golden shot
+        setTimeout(() => bigShow(theme, floater, firstShow, floatDur), 1200);
+        setTimeout(() => { try { SKY.fadeName(); } catch (e) {} revealMessage(); }, 1800);
+        // button appears partway through the show, not after it fully finishes
+        const BTN_AT = Math.min(9000, SHOW_LEN * 0.45);
+        setTimeout(() => {
+          row.style.visibility = "visible"; row.querySelector(".celebrate-btn") && row.classList.add("ready");
+          if (spotifyLink && isLastMsg) { spotifyLink.style.visibility = "visible"; spotifyLink.classList.add("pop-in"); }
+        }, BTN_AT);
+        // bring the song back to the front once the show winds down
+        setTimeout(() => { try { unduckGrandMusic(); } catch (e) {} }, SHOW_LEN + 3000);
+      };
+
+      if (firstRun) {
+        // first time only: the butterfly swarm uncovers "Mahii", then the show
+        try { SKY.clearName(); SKY.nameInStars(CONFIG.herName, true); } catch (e) { /* ignore */ }
+        const swarmCount = window.innerWidth <= 600 ? 40 : 220;   // phones get fewer so it stays smooth
+        butterflyReveal(swarmCount, () => {
           try { SKY.showName(); } catch (e) { /* ignore */ }
-          const firstShow = (cycle === 1);                            // the very first run is the long, gentle one
-          const NAME_HOLD = 4000;                                     // let the name + song breathe before any firework
-          const BIGSHOW_DELAY = NAME_HOLD + 3200;                     // gold shower, then let it own the sky
-          const SHOW_LEN = firstShow ? 40000 : 23000;                 // first show ~40s; replays ~23s
-          const SHOW_END = BIGSHOW_DELAY + SHOW_LEN;                  // buttons only after the fireworks finish
-          setTimeout(() => { try { duckGrandMusic(); } catch (e) {} }, NAME_HOLD - 600);   // duck just before the booms
-          setTimeout(() => { try { SKY.bigGoldFirework(); } catch (e) {} }, NAME_HOLD);   // first shot after the hold
-          setTimeout(() => bigShow(theme, floater, firstShow), BIGSHOW_DELAY);
-          setTimeout(() => { try { SKY.fadeName(); } catch (e) {} revealMessage(); }, BIGSHOW_DELAY + 900);
-          // the two buttons appear only once the whole show has finished
+          const NAME_HOLD = 4000;   // let the name + song breathe before any firework
+          setTimeout(() => { try { duckGrandMusic(); } catch (e) {} }, NAME_HOLD - 600);
           setTimeout(() => {
-            row.style.visibility = "visible"; row.querySelector(".celebrate-btn") && row.classList.add("ready");
-            // Spotify link only on the final screen
-            if (spotifyLink && isLastMsg) { spotifyLink.style.visibility = "visible"; spotifyLink.classList.add("pop-in"); }
-            try { unduckGrandMusic(); } catch (e) { /* ignore */ }   // show over -> song back to the front
-          }, SHOW_END);
-        }
-      );
+            try { SKY.bigGoldFirework(); } catch (e) {}
+            setTimeout(() => bigShow(theme, floater, true, floatDur), 3200);
+            setTimeout(() => { try { SKY.fadeName(); } catch (e) {} revealMessage(); }, 4100);
+            setTimeout(() => {
+              row.style.visibility = "visible"; row.querySelector(".celebrate-btn") && row.classList.add("ready");
+            }, 25000);   // first screen: let the long show breathe before "There's more"
+            setTimeout(() => { try { unduckGrandMusic(); } catch (e) {} }, NAME_HOLD + 40000 + 3000);
+          }, NAME_HOLD);
+        });
+      } else {
+        // subsequent celebrations: no intro reveal — just continue to the next show
+        try { SKY.showName(); } catch (e) { /* ignore */ }   // keep the name up
+        launch();
+      }
     }
 
     againBtn.addEventListener("click", () => {
       try { SKY.unlockAudio && SKY.unlockAudio(); } catch (e) { /* ignore */ }
-      try { SKY.clearLanterns(); } catch (e) { /* ignore */ }
-      runShow();
+      // NOTE: no clearLanterns — let floaters from previous screens keep drifting
+      runShow(false);
     });
     // let the page-swap finish painting first, THEN start the swarm (avoids first-run jank)
     requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => {
       // only clear leftovers on phones (perf); desktop lets them keep drifting up
       if (window.innerWidth <= 600) { try { SKY.clearLanterns(); } catch (e) { /* ignore */ } }
-      runShow();
+      runShow(true);
     }, 300)));
   }
 

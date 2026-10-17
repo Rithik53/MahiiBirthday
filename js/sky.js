@@ -608,7 +608,7 @@ const SKY = (() => {
   }
 
   const WARM = ["#ffb15c", "#ffce6b", "#ff9f68"];
-  function launchFloaters(count, type, onAll, autoClean) {
+  function launchFloaters(count, type, onAll, autoClean, riseDur) {
     type = type || "lantern";
     for (let i = 0; i < count; i++) {
       const el = document.createElement("div");
@@ -618,7 +618,9 @@ const SKY = (() => {
       const size = 34 + Math.random() * 26;
       el.style.width = size + "px";
       el.style.left = Math.random() * (W - size) + "px";
-      const dur = 9 + Math.random() * 7;
+      // riseDur (seconds) lets a caller make floaters linger much longer so
+      // several screens' worth can coexist; default stays the quick 9-16s
+      const dur = riseDur ? (riseDur + Math.random() * (riseDur * 0.3)) : (9 + Math.random() * 7);
       const delay = Math.random() * 4;
       const sway = (Math.random() * 34 + 16) * (Math.random() > 0.5 ? 1 : -1);
       el.style.animation = `lantern-rise ${dur}s linear ${delay}s forwards`;
