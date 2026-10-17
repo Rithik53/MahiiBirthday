@@ -79,7 +79,7 @@ const CONFIG = {
   // ---- The hub (constellation map) ----------------------------------------
   hub: {
     title: "Pick a star",
-    subtitle: "Four little chapters, best read in order. Light all four to unlock the last one.",
+    subtitle: "Four little chapters, Light all four to unlock the last one.",
     finaleLockedLabel: "☆ one more star, once the sky is lit",
     finaleUnlockedLabel: "🌟 The brightest one, open it",
   },
@@ -224,7 +224,7 @@ const CONFIG = {
       "(Also, Mahii, do give podcasting a try someday, will you? The way you put things into words, the lihaaz you have when you speak… I genuinely think you'd be so good at it)",
       "One thing I really like about you is how thoughtfully you express yourself, and how you seem to give people the space to be themselves around you. There's a certain warmth in the way you carry yourself that I find genuinely lovely. Pata nahi if you realise it yourself, but I think that's a pretty special thing to have.",
       "Somewhere along the way, you've reminded me what it feels like to smile without thinking about it, and that life's too short to go through it half-present.",
-      "You once said you shouldn't matter so much to me. But honestly, you do. At least to me, you do. And I hope you never feel like you have to make yourself smaller or hide the parts of yourself that make you who you are. You deserve to be appreciated for all that you are.",
+      "You once said you shouldn’t matter so much to me. But honestly, you do. At least to me, you do. I guess I just wanted you to know that there are so many little things about you that are genuinely easy to appreciate. The way you express yourself, the warmth you bring into a conversation, the little things that make you who you are. I think those things are pretty special, and I'm glad I've gotten to know that side of you.",
       "Happy birthday, {her}. ☀️",
       "I hope the world never ceases to celebrate you, that life gives you a thousand reasons to smile, and that you always find yourself surrounded by the kind of love and happiness you deserve.",
     ],
@@ -247,7 +247,7 @@ const CONFIG = {
   // ---- The grand finale (the real ending: fireworks, lanterns, everything) --
   // She taps "there's more" after the P.S. and the whole sky goes off.
   grandFinale: {
-    kicker: "okay, THIS is the last one",
+    //kicker: "okay, THIS is the last one",
     title: "Happy Birthday",     // herName + 🎂 added automatically
     // one message per celebration (balloons -> stars -> lanterns -> swarm); each
     // "Celebrate again" shows the next. After the last it loops back to the first.
@@ -279,7 +279,15 @@ const CONFIG = {
       ],
     ],
     signoff: "",                 // per-message, so no fixed sign-off here
-    againLabel: "🎂 Celebrate you again",   // replays the whole fireworks show in place
+    againLabel: "🎂 Celebrate you again",   // fallback label
+    // one button label per screen (matches the 4 messages). The last one is the
+    // real "celebrate again"; only the last screen also shows replay + Spotify.
+    againLabels: [
+      "There's more ✨",
+      "One more thing →",
+      "And another… ☆",
+      "Celebrate again 🎆",
+    ],
     // soft instrumental under the fireworks (set to "" for fireworks-only silence)
     song: "assets/grand.mp3",
     songLabel: "Mudhal Nee Mudivum Nee",

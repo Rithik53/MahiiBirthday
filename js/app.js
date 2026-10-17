@@ -1529,8 +1529,18 @@
     function runShow() {
       const theme = SHOW_THEMES[cycle % SHOW_THEMES.length];
       const floater = FLOATERS[cycle % FLOATERS.length];
+      const msgIdx = cycle % MESSAGES.length;          // which message/screen this is
+      const isLastMsg = msgIdx === MESSAGES.length - 1;
       buildLines(cycle);         // this celebration's own message (hidden until reveal)
       cycle++;
+
+      // this screen's "again" button label (progressive: more -> one more -> ... -> celebrate again)
+      const againLabels = (g.againLabels && g.againLabels.length) ? g.againLabels : null;
+      againBtn.textContent = againLabels
+        ? againLabels[Math.min(msgIdx, againLabels.length - 1)]
+        : (g.againLabel || "🎉 Celebrate again");
+      // only the final screen offers "watch the sky again" + the Spotify link
+      replay.style.display = isLastMsg ? "" : "none";
       try { SKY.setFireworkTheme(theme); SKY.setPalette(theme); } catch (e) { /* ignore */ }
       // message starts hidden (buildLines created fresh, un-shown lines)
       row.style.visibility = "hidden";
@@ -1555,7 +1565,8 @@
           // the two buttons appear only once the whole show has finished
           setTimeout(() => {
             row.style.visibility = "visible"; row.querySelector(".celebrate-btn") && row.classList.add("ready");
-            if (spotifyLink) { spotifyLink.style.visibility = "visible"; spotifyLink.classList.add("pop-in"); }
+            // Spotify link only on the final screen
+            if (spotifyLink && isLastMsg) { spotifyLink.style.visibility = "visible"; spotifyLink.classList.add("pop-in"); }
             try { unduckGrandMusic(); } catch (e) { /* ignore */ }   // show over -> song back to the front
           }, SHOW_END);
         }
