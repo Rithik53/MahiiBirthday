@@ -175,7 +175,7 @@ const CONFIG = {
           options: [
             { label: "mum's parcels ✈️", reply: "Genius. Zero overhead. Aunty is now Head of Logistics." },
             { label: "I smuggle a bag on every flight", reply: "That's literally our current model. Employee #1 (me) handles the smuggling." },
-            { label: "franchise the whole thing", reply: "Ambitious. We'll discuss equity over CB." },
+            { label: "franchise the whole thing", reply: "Ambitious. We'll discuss equity over CB?." },
           ],
         },
         {
