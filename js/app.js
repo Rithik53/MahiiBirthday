@@ -808,11 +808,65 @@
     accept.disabled = true;
     box.addEventListener("change", () => { accept.disabled = !box.checked; if (box.checked) reply.textContent = ""; });
     reject.addEventListener("click", () => { reply.textContent = fill(c.rejectReply || "Denied. 🙂"); });
-    accept.addEventListener("click", () => { if (!accept.disabled) enterSky(); });
+    accept.addEventListener("click", () => {
+      if (accept.disabled) return;
+      if (CONFIG.musicGate) renderMusicGate();   // ask about sound before entering
+      else enterSky();
+    });
     row.appendChild(reject);
     row.appendChild(accept);
     scene.appendChild(row);
     swap(scene);
+  }
+
+  // ---------------------------------------------------- MUSIC GATE (sound on?)
+  function renderMusicGate() {
+    const m = CONFIG.musicGate || {};
+    const scene = el("div", "scene music-gate");
+    scene.appendChild(el("h2", "title", m.title || "Sound on?"));
+    if (m.subtitle) scene.appendChild(el("p", "subtitle", m.subtitle));
+
+    const row = el("div", "btn-row");
+    const yes = el("button", "btn", m.yesLabel || "🎵 Play it");
+    const no = el("button", "btn ghost", m.noLabel || "🔇 I'll pass");
+    row.appendChild(yes);
+    row.appendChild(no);
+    scene.appendChild(row);
+    swap(scene);
+
+    let done = false;
+    const choose = (wantMusic) => {
+      if (done) return; done = true;
+      musicWanted = wantMusic;
+      const icon = wantMusic ? (m.yesIcon || "🎵") : (m.noIcon || "🔇");
+      flyIconToToggle(icon, () => enterSky());
+    };
+    yes.addEventListener("click", () => choose(true));
+    no.addEventListener("click", () => choose(false));
+  }
+
+  // a chosen icon lifts from the center and flies up to the music toggle, then
+  // the toggle gets a little pop as it "lands"
+  function flyIconToToggle(icon, done) {
+    const fly = el("div", "fly-icon", icon);
+    document.body.appendChild(fly);
+    // start near the center of the screen
+    const sx = window.innerWidth / 2;
+    const sy = window.innerHeight * 0.5;
+    const r = musicBtn.getBoundingClientRect();
+    const tx = r.left + r.width / 2;
+    const ty = r.top + r.height / 2;
+    fly.style.left = sx + "px";
+    fly.style.top = sy + "px";
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      fly.style.transform = `translate(-50%, -50%) translate(${tx - sx}px, ${ty - sy}px) scale(0.45)`;
+      fly.style.opacity = "0.2";
+    }));
+    setTimeout(() => {
+      fly.remove();
+      try { musicBtn.classList.add("land"); setTimeout(() => musicBtn.classList.remove("land"), 420); } catch (e) {}
+      if (done) done();
+    }, 950);
   }
 
   // -------------------------------------------------------------- HUB

@@ -65,6 +65,17 @@ const CONFIG = {
     rejectReply: "Objection noted. Overruled. 🙂 This clause is non-negotiable.",
   },
 
+  // ---- Music opt-in (after consent) --- a gentle pun about her "elite" taste
+  musicGate: {
+    title: "Sound on?",
+    // the pun: she's got elite music taste; this won't live up to it, but it tried
+    subtitle: "Fair warning: your taste is elite, and this is… an honest attempt. Shall we press play anyway?",
+    yesLabel: "🎵 Play it",
+    noLabel: "🔇 I'll pass",
+    yesIcon: "🎵",
+    noIcon: "🔇",
+  },
+
   // ---- The hub (constellation map) ----------------------------------------
   hub: {
     title: "Pick a star",

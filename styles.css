@@ -531,6 +531,24 @@ body::after {
   opacity: 0.82;
 }
 
+/* ---- music opt-in gate (after consent) ---- */
+.music-gate { position: relative; }
+.music-gate::before {   /* soft blurred veil behind the question */
+  content: ""; position: fixed; inset: 0; z-index: -1;
+  background: rgba(6, 6, 16, 0.5);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+/* the chosen icon that flies up to the toggle */
+.fly-icon {
+  position: fixed; z-index: 60; font-size: 2.6rem; line-height: 1;
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: none; opacity: 1;
+  transition: transform 0.9s cubic-bezier(0.5, 0, 0.2, 1), opacity 0.9s ease;
+  text-shadow: 0 0 22px rgba(255, 216, 132, 0.5);
+}
+.music-toggle.land { animation: toggleLand 0.42s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes toggleLand { 0% { transform: scale(1); } 45% { transform: scale(1.4); } 100% { transform: scale(1); } }
+
 /* ---- top chrome ---- */
 .music-toggle {
   position: fixed; top: calc(14px + var(--safe-top)); left: 14px;
