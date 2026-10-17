@@ -158,6 +158,12 @@ body::after {
   transform: rotate(-2deg); opacity: 0.95;
   text-shadow: 0 0 16px rgba(255, 233, 176, 0.35);
 }
+/* small heading above a beat's body ("A little about her" etc.) */
+.beat-title {
+  font-size: clamp(0.72rem, 3vw, 0.85rem);
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--cyan); margin: 0 auto 10px; opacity: 0.85;
+}
 
 /* ---- Buttons ---- */
 .btn {

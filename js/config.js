@@ -17,7 +17,7 @@
 const CONFIG = {
   // ---- The basics ---------------------------------------------------------
   herName: "Mahii",             // shown throughout
-  yourName: "Me",               // your name / how you sign off
+  yourName: "Rithik",               // your name / how you sign off
 
   // ⚙️ DEV ONLY: keeps the finale star unlocked so you don't have to click
   //    through every constellation while building. SET TO false BEFORE SHARING.
@@ -122,12 +122,12 @@ const CONFIG = {
         { src: "assets/ch2.mp3",  label: "Tumhe Aaj Maine Jo Dekha" },
       ],
       beats: [
-        { text: "Anyone who knows you knows this one: you love the sky. Sunsets, stars, the whole lot.", note: "your kind of scenery" },
-        { text: "So when I wanted to say something a bit too big for a text, I figured I'd put it where you already like to look. Up.", note: "hence, all this ✷" },
-        { text: "Funny part — I never really noticed the sky before. Somewhere along the way, around you, I started looking up more.", note: "your doing, clearly" },
-        { text: "I think I get why it settles you. Look up long enough and the loud stuff goes quiet. Aap se baat karte hue bhi kuch waise hi hota hai.", note: "the quiet kind of nice 🌙" },
-        { text: "So no big speech from me. Bas itna — jahan aap dekhna pasand karti ho, maine wahan hi kuch keh diya.", note: "subtle, I know" },
-        { text: "This whole thing — every chapter — is just me still looking for the right words. Keep going; the real ones are waiting at the end." },
+        { text: "Anyone who knows you knows this one: you love the sky. Sunsets, stars, the whole lot.", note: "your kind of scenery ☁️" },
+        { text: "So when I wanted to say something a bit too big for a text, I figured I'd put it somewhere you already love looking. Up.", note: "hence, all this ✨" },
+        { text: "Funny thing is, I've always loved the sky. But somewhere along the way, I started finding little reminders of you in it, too.", note: "your doing, clearly :')" },
+        { text: "I think I get why the sky settles you. Look up long enough and the loud stuff goes quiet. Aap se baat karte hue bhi kuch waise hi hota hai.", note: "the quiet kind of nice ♡" },
+        { text: "So no big speech from me. Bas laga, iss baar birthday wish thodi hatke honi chahiye. :')", note: "subtle, I know :')" },
+        { text: "This whole thing — every little chapter — is me trying to find the right words. I think I saved the most important ones for the end. Keep going. ♡", note: "almost there ✨" },
       ],
     },
     {
@@ -207,13 +207,15 @@ const CONFIG = {
     title: "Dearest",            // herName added automatically
     nameDisplay: "Mahiiii…",     // shown after "Dearest" on the message page (instead of the ✷)
     lines: [
-      "Kehte hain, a butterfly apne hi wings kabhi nahi dekh paati. Everyone else does, bas usse yakeen nahi hota.",
-      "Aap bhi thodi waise hi ho. You don't notice what you do to a room. Par maine dekha hai.",
-      "Aur sach mein, aapse baat karne ka best part aapke voice notes hote hain. Truly. (Aap podcasts pe kamaal kar dogi, hehe.)",
-      "Aapne mujhe phir se sach mein muskurana sikha diya, aur yaad dilaya ki zindagi bahut choti hai half-present jeene ke liye.",
-      "Aapne ek baar kaha tha ki aapko itna matter nahi karna chahiye. But you do, and to a far greater deal than you'd think.",
-      "Happy birthday, {her}. Still glad I made up my mind to come to Pratik that afternoon. ☀️",
-      "Here's to more conversations, more nonsense, and more of you.",
+      "I don't think you realise how much of a shot of sunshine you are.",
+      "I don't mean that in some grand, poetic way. It's just something I've come to notice about you. You've become a little synonymous with light to me. Pata nahi kaise, but somehow, the grass really does feel greener with you in the picture.",
+      "And I think that's part of why I enjoy talking to you so much. Even your voice notes have a way of making an ordinary day a little better.",
+      "(Also, Mahii, do give podcasting a try someday, will you? The way you put things into words, the lihaaz you have when you speak… I genuinely think you'd be so good at it)",
+      "One thing I really like about you is how thoughtfully you express yourself, and how you seem to give people the space to be themselves around you. There's a certain warmth in the way you carry yourself that I find genuinely lovely. Pata nahi if you realise it yourself, but I think that's a pretty special thing to have.",
+      "Somewhere along the way, you've reminded me what it feels like to smile without thinking about it, and that life's too short to go through it half-present.",
+      "You once said you shouldn't matter so much to me. But honestly, you do. At least to me, you do. And I hope you never feel like you have to make yourself smaller or hide the parts of yourself that make you who you are. You deserve to be appreciated for all that you are.",
+      "Happy birthday, {her}. ☀️",
+      "I hope the world never ceases to celebrate you, that life gives you a thousand reasons to smile, and that you always find yourself surrounded by the kind of love and happiness you deserve.",
     ],
     signoff: "",                // no sign-off on the message page; name only in grand finale
     song: "assets/finale.mp3",  // fallback single clip (used if `songs` below is empty)
@@ -236,13 +238,36 @@ const CONFIG = {
   grandFinale: {
     kicker: "okay, THIS is the last one",
     title: "Happy Birthday",     // herName + 🎂 added automatically
-    lines: [
-      "I couldn't fit it all into words, so I borrowed the sky.",
-      "You've made these last few weeks feel lighter than they had any right to.",
-      "I hope your day is as pretty as you are.",
-      "Happy birthday, {her}. 🎂",
+    // one message per celebration (balloons -> stars -> lanterns -> swarm); each
+    // "Celebrate again" shows the next. After the last it loops back to the first.
+    messages: [
+      [
+        "I couldn't fit it all into words, so I borrowed the sky.",
+        "You've made these last few weeks feel lighter than they had any right to.",
+        "I hope the universe gives you a little extra reason to smile today, and many more throughout the year.",
+        "Happy birthday, {her}. ☀️",
+      ],
+      [
+        "Here's to all the places you're going and all the things you're yet to discover. ☆",
+        "I hope this year brings you closer to the dreams you've been working towards and surprises you with a few you haven't even imagined yet.",
+        "I hope you get to take chances that excite you, find yourself in places you've always wanted to see, and look back one day amazed at how far you've come.",
+        "The world's a pretty big place, Mahii. I hope you get to see just how much of it is waiting for you.",
+      ],
+      [
+        "If the universe is listening, I've got a few requests for you, Mahii. 🏮",
+        "More days that turn out better than you expected. More spontaneous plans that become your favourite memories. More opportunities that make you excited about what's next.",
+        "A little luck when you need it most, courage when you need to take a leap, and a few beautiful surprises along the way.",
+        "And if the universe could make a few of your biggest wishes come true this year, that would be lovely, too. ♡",
+      ],
+      [
+        "And one last birthday wish for you, Mahii. ♡",
+        "I hope that when you look back on this year, you'll find a hundred little moments worth keeping. The kind you wish you could relive for just a few seconds longer. The kind that make you think, life can be really beautiful sometimes.",
+        "I hope you get opportunities that challenge you, adventures that change your perspective, people who celebrate your wins, and countless reasons to be proud of the person you're becoming.",
+        "May the universe be ridiculously generous with you. May your biggest dreams find their way to you, and may life surprise you in ways even you couldn't have wished for.",
+        "Happy birthday, {her}. Here's to a year that's every bit as wonderful as you deserve it to be. ☆",
+      ],
     ],
-    signoff: "Me",               // auto-fills yourName; set to "" to hide
+    signoff: "",                 // per-message, so no fixed sign-off here
     againLabel: "🎂 Celebrate you again",   // replays the whole fireworks show in place
     // soft instrumental under the fireworks (set to "" for fireworks-only silence)
     song: "assets/grand.mp3",

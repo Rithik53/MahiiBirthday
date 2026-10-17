@@ -1145,6 +1145,7 @@
         scene.appendChild(card);
         next.textContent = beat.button || "Accept & sign ✍️";
       } else {
+        if (beat.title) scene.appendChild(el("p", "beat-title", fill(beat.title)));
         if (beat.note) scene.appendChild(el("p", "beat-note", fill(beat.note)));
         scene.appendChild(el("p", "beat-text", fill(beat.text || "")));
         next.textContent = isLast ? (beat.button || "Light it ✷") : (beat.button || "Next →");
@@ -1309,17 +1310,28 @@
     head.appendChild(el("h1", "title", `${fill(g.title) || "Happy Birthday"} 🎂`));
     scene.appendChild(head);
 
+    // messages: an array of line-sets, one per celebration (balloons -> stars ->
+    // lanterns -> swarm). Falls back to the old single `lines` if `messages` absent.
+    const MESSAGES = (g.messages && g.messages.length) ? g.messages : [g.lines || []];
     const linesWrap = el("div", "finale-lines");
-    const lineEls = (g.lines || []).map((t) => {
-      const p = el("p", "finale-line", fill(t));
-      linesWrap.appendChild(p);
-      return p;
-    });
+    scene.appendChild(linesWrap);
     let signTxt = null;
     if (g.signoff) signTxt = g.signoff === "Me" ? (CONFIG.yourName || "Me") : fill(g.signoff);
-    const sign = signTxt ? el("p", "finale-signoff", signTxt) : null;
-    if (sign) linesWrap.appendChild(sign);
-    scene.appendChild(linesWrap);
+    let lineEls = [];
+    let sign = null;
+    // (re)build the message block for a given celebration index
+    function buildLines(idx) {
+      linesWrap.innerHTML = "";
+      const set = MESSAGES[idx % MESSAGES.length] || [];
+      lineEls = set.map((t) => {
+        const p = el("p", "finale-line", fill(t));
+        linesWrap.appendChild(p);
+        return p;
+      });
+      sign = signTxt ? el("p", "finale-signoff", signTxt) : null;
+      if (sign) linesWrap.appendChild(sign);
+    }
+    buildLines(0);
 
     const row = el("div", "btn-row");
     const againBtn = el("button", "btn celebrate-btn", (CONFIG.grandFinale && CONFIG.grandFinale.againLabel) || "🎉 Celebrate again");
@@ -1454,11 +1466,10 @@
     function runShow() {
       const theme = SHOW_THEMES[cycle % SHOW_THEMES.length];
       const floater = FLOATERS[cycle % FLOATERS.length];
+      buildLines(cycle);         // this celebration's own message (hidden until reveal)
       cycle++;
       try { SKY.setFireworkTheme(theme); SKY.setPalette(theme); } catch (e) { /* ignore */ }
-      // hide the message during the reveal
-      lineEls.forEach((p) => p.classList.remove("show"));
-      if (sign) sign.classList.remove("show");
+      // message starts hidden (buildLines created fresh, un-shown lines)
       row.style.visibility = "hidden";
       if (spotifyLink) { spotifyLink.style.visibility = "hidden"; spotifyLink.classList.remove("pop-in"); }
       // her name forms hidden; a swarm of butterflies covers the centre, then
