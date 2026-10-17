@@ -164,7 +164,7 @@ const CONFIG = {
           prompt: "Where does the <em>actually good</em> rice come from? (choose one)",
           options: [
             { label: "Raipur, obviously 🌾", reply: "Correct. You'd be shocked how many people fail question one." },
-            { label: "the Bangalore supermarket", reply: "Wrong. Security's been alerted. Please step away from the aisle." },
+            { label: "Random Bangalore supermarket", reply: "Wrong. Security's been alerted. Please step away from the aisle." },
             { label: "somewhere up north?", reply: "Vague… but your mum's parcels forgive you." },
           ],
         },
