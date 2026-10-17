@@ -1448,6 +1448,7 @@
     ];
     const FLOATERS = ["balloon", "star", "lantern", "crane"];
     let cycle = 0;
+    let unduckTimer = null;   // pending "song back to front" timer; cancelled on each new show
 
     // small per-run jitter so no two shows feel identical — but scale stays the same
     const jit = (base, amt) => base + (Math.random() * 2 - 1) * amt;
@@ -1536,6 +1537,10 @@
       // screen 1 ~60s, screens 2-3 ~45s, screen 4 = default quick rise
       const FLOAT_DURS = [60, 45, 45];
       const floatDur = FLOAT_DURS[msgIdx];             // undefined on the last -> default
+      // cancel any pending "song back to front" from the previous screen, and
+      // keep the song ducked (background) while the new show's fireworks are live
+      if (unduckTimer) { clearTimeout(unduckTimer); unduckTimer = null; }
+      try { duckGrandMusic(); } catch (e) { /* ignore */ }
       buildLines(cycle);         // this celebration's own message (hidden until reveal)
       cycle++;
 
@@ -1565,8 +1570,9 @@
           row.style.visibility = "visible"; row.querySelector(".celebrate-btn") && row.classList.add("ready");
           if (spotifyLink && isLastMsg) { spotifyLink.style.visibility = "visible"; spotifyLink.classList.add("pop-in"); }
         }, BTN_AT);
-        // bring the song back to the front once the show winds down
-        setTimeout(() => { try { unduckGrandMusic(); } catch (e) {} }, SHOW_LEN + 3000);
+        // bring the song back to the front once the show winds down (keep it
+        // ducked for the whole live-fireworks window first)
+        unduckTimer = setTimeout(() => { try { unduckGrandMusic(); } catch (e) {} }, SHOW_LEN + 3000);
       };
 
       if (firstRun) {
@@ -1584,7 +1590,7 @@
             setTimeout(() => {
               row.style.visibility = "visible"; row.querySelector(".celebrate-btn") && row.classList.add("ready");
             }, 25000);   // first screen: let the long show breathe before "There's more"
-            setTimeout(() => { try { unduckGrandMusic(); } catch (e) {} }, NAME_HOLD + 40000 + 3000);
+            unduckTimer = setTimeout(() => { try { unduckGrandMusic(); } catch (e) {} }, NAME_HOLD + 40000 + 3000);
           }, NAME_HOLD);
         });
       } else {
@@ -1596,6 +1602,7 @@
 
     againBtn.addEventListener("click", () => {
       try { SKY.unlockAudio && SKY.unlockAudio(); } catch (e) { /* ignore */ }
+      try { stage.scrollTop = 0; } catch (e) { /* ignore */ }   // reset to top for the next message
       // NOTE: no clearLanterns — let floaters from previous screens keep drifting
       runShow(false);
     });
