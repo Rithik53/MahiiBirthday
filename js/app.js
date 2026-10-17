@@ -838,7 +838,15 @@
     const choose = (wantMusic) => {
       if (done) return; done = true;
       musicWanted = wantMusic;
-      if (!wantMusic) setMusicUI(false);   // show the muted icon straight away
+      // unlock audio INSIDE the tap (iOS requires it) so sound isn't lost during
+      // the fly animation delay before enterSky() actually starts the track
+      try { SKY.unlockAudio && SKY.unlockAudio(); } catch (e) { /* ignore */ }
+      try { resumeAudioCtx(); } catch (e) { /* ignore */ }
+      if (wantMusic) {
+        try { startMusicIfPossible(); } catch (e) { /* ignore */ }   // start within the gesture
+      } else {
+        setMusicUI(false);   // show the muted icon straight away
+      }
       const icon = wantMusic ? (m.yesIcon || "🎵") : (m.noIcon || "🔇");
       flyIconToToggle(icon, () => enterSky());
     };
