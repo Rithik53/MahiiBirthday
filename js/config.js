@@ -151,11 +151,13 @@ const CONFIG = {
       song: "assets/ch3.mp3",
       songLabel: "Chaar Kadam",
       beats: [
-        {
-          text: "Quick intermission from all the feelings. Item on the agenda: {her} Rice Co.™ is officially hiring.\nHQ: Bangalore. Sole supplier: the good stuff from Raipur, couriered by Mum.",
-          note: "welcome, boss 🌾",
-          button: "Start onboarding →",
-        },
+        
+{
+  text: "Quick intermission from all the feelings. We need to discuss something very important: your love for the greatest rice known to humankind. Naturally, this calls for a business venture. Introducing {her} Rice Co.™ — HQ: Bangalore. Sole supplier: the good stuff from Raipur, couriered by Mum.",
+  note: "welcome, boss 🌾",
+  button: "Start onboarding →",
+}
+,
         {
           type: "choice",
           note: "screening: question 1",
