@@ -115,7 +115,7 @@ const CONFIG = {
       songLabel: "Ek Ajnabee Haseena Se",   // shown in the now-playing label
       beats: [
         { text: "Quick rewind. Picture me: no plans, no expectations, dragging myself to Pratik only because a friend wouldn't let it go.", note: "some ordinary June afternoon" },
-        { text: "I wasn't there hoping to meet anyone. Sacchi, just burning a lunch break.", note: "famous last words" },
+        { text: "I wasn't there hoping to meet anyone. Honestly, just burning a lunch break.", note: "famous last words" },
         { text: "I'd dropped into some random empty chair, no idea it wasn't mine to take. Then you came over to that side, and I looked up at just the right moment.", note: "timing" },
         { text: "I gestured and asked if the seat was yours. You shook your head, no, and carried on with your day.", note: "very smooth, me" },
         { text: "One question stuck in my head that whole afternoon. Honestly, it never really left.", note: "who <em>is</em> she 👀" },
@@ -153,7 +153,7 @@ const CONFIG = {
       beats: [
         
 {
-  text: "Quick intermission from all the feelings. We need to discuss something very important: your love for the greatest rice known to humankind. Naturally, this calls for a business venture. Introducing {her} Rice Co.™ — HQ: Bangalore. Sole supplier: the good stuff from Raipur, couriered by Mum.",
+  text: "Quick intermission. We need to discuss something very important: your love for the greatest rice known to humankind. Naturally, this calls for a business venture. Introducing {her} Rice Co.™ — HQ: Bangalore. Sole supplier: the good stuff from Raipur, couriered by Mum.",
   note: "welcome, boss 🌾",
   button: "Start onboarding →",
 }
