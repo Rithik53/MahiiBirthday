@@ -838,6 +838,7 @@
     const choose = (wantMusic) => {
       if (done) return; done = true;
       musicWanted = wantMusic;
+      if (!wantMusic) setMusicUI(false);   // show the muted icon straight away
       const icon = wantMusic ? (m.yesIcon || "🎵") : (m.noIcon || "🔇");
       flyIconToToggle(icon, () => enterSky());
     };
