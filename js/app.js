@@ -1402,11 +1402,11 @@
     const replay = el("button", "btn ghost", CONFIG.finale.replayLabel || "↺ Watch the sky again");
     replay.addEventListener("click", () => {
       try { SKY.clearLanterns(); } catch (e) { /* ignore */ }
-      seen.clear();
-      unlockedOnce = false;
-      renderIntro();
-      // coming back from the grand finale: audio is already unlocked, so bring the
-      // hub song back on the intro page instead of waiting for "Open the sky"
+      try { stopGrandMusic(); } catch (e) { /* ignore */ }   // leaving the fireworks
+      // keep chapters lit (seen stays full) so the finale star stays unlocked,
+      // and go back to the hub — not the intro
+      renderHub();
+      // bring the hub song back (audio already unlocked)
       try { startMusicIfPossible(); } catch (e) { /* ignore */ }
     });
     row.appendChild(againBtn);
