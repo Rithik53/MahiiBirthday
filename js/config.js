@@ -236,24 +236,23 @@ const CONFIG = {
           },
         ],
       },
-      {
-        type: "letter",
-        button: "Accept & sign ✍️",
-        letter: {
-          company: "{her} Rice Co.™",
-          tagline: "Fragrant rice. Questionable logistics. Unlimited ambition.",
-          heading: "Letter of Employment",
-          lines: [
-            "Dear Founder &amp; CEO ({her}),",
-            "Congratulations. This letter confirms your very first hire: <b>Chief Bag-Carrier &amp; Employee #1</b>.",
-            "Duties: procuring the finest rice from Raipur, coordinating with Head of Logistics (Mum), protecting the company's reputation, and maintaining strict quality standards.",
-            "Compensation: payable in premium rice, occasional executive privileges, and the honour of working for the most important rice enterprise in Bangalore.",
-            "Terms &amp; conditions: the CEO is always right about rice. All disputes shall be settled over a bowl of the good stuff."
-          ],
-          signature: "Me",
-          signRole: "reporting for duty 🙋",
-        },
-      },
+    {
+  type: "letter",
+  button: "Accept & sign ✍️",
+  letter: {
+    company: "{her} Rice Co.™",
+    tagline: "The finest rice. The finest CEO.",
+    heading: "Letter of Employment",
+    lines: [
+      "Dear CEO ({her}),",
+      "Congratulations! You've hired your very first employee: <b>Chief Bag-Carrier & Loyal Employee #1</b>.",
+      "Duties: bringing the good stuff from Raipur and reporting for rice-related emergencies.",
+      "Compensation: unlimited rice-related discussions."
+    ],
+    signature: "Me",
+    signRole: "reporting for duty 🙋",
+  },
+},
     ],
   },
 
