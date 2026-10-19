@@ -265,8 +265,8 @@ const CONFIG = {
   note: "a surprisingly well-rounded portfolio"
 },
       {
-  text: "It's funny how the little things about someone can stay with you. The way they smile, the things they get excited about, or how they can make an ordinary conversation a little more memorable.",
-  note: "funny what you end up remembering ♡"
+  text: "I guess that's one of the nice things about getting to know someone. You have conversations, share random little moments, and slowly get to know all these different sides of them. It's nice when those moments leave you with a few good memories.",
+  note: "some good memories along the way"
 },
       {
         text: "So, if there's one thing I wanted this little project to do, it's remind you that you're someone worth celebrating. Not because of what you mean to anybody else, but because there's plenty about you that's worth celebrating in its own right.",
