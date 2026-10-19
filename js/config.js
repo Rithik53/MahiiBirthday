@@ -251,10 +251,10 @@ const CONFIG = {
         text: "Okay, jokes aside for a second. Nothing cinematic happened. No grand turning point, no dramatic movie scene. Just a collection of little moments that stayed with me.",
         note: "the soundtrack is still pretty good though"
       },
-      {
-        text: "I like how you pay attention when someone talks. You actually listen, and that's a quality I appreciate more than I probably say out loud.",
-        note: "a small thing that matters"
-      },
+     {
+  text: "I like how you are when you're talking to people. You have this way of making everyone feel included and heard, like no one is just standing on the sidelines of a conversation. I think that's a really lovely quality to have.",
+  note: "you make room for everyone ♡"
+},
       {
         text: "And that grin of yours. Honestly, I've tried coming up with a sufficiently accurate description, but the research department has made absolutely no progress.",
         note: "case remains open :')"
