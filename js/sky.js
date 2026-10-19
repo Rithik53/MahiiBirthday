@@ -723,6 +723,7 @@ const SKY = (() => {
     launchFloaters,
     clearLanterns,
     unlockAudio,
+    boom,
   };
 })();
 

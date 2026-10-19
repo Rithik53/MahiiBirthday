@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>FW test (direct)</title>
+<style>
+  html,body{margin:0;height:100%;background:#05060f;overflow:hidden}
+  #dbg{position:fixed;left:8px;top:8px;z-index:999;color:#9f9;font:12px/1.4 monospace;white-space:pre;pointer-events:none;text-shadow:0 0 3px #000}
+</style>
+</head>
+<body>
+  <div id="dbg">loading…</div>
+  <script>
+  // show any error on screen (iPhone has no console)
+  window.onerror = function(m, s, l, c){ document.getElementById('dbg').textContent = 'ERROR: ' + m + ' @' + l + ':' + c; };
+  </script>
+  <!-- load the real engine directly in THIS page (no iframe) -->
+  <script>
+  // we fetch fireworks.html, pull out its <canvas> + <script>, and run them here,
+  // so we can see exactly what the engine does on this device.
+  fetch('fireworks.html').then(r => r.text()).then(html => {
+    try {
+      // inject the canvases
+      var canv = ['sky','smoke','fx','front','bloom'];
+      canv.forEach(function(id){
+        var c = document.createElement('canvas'); c.id = id;
+        c.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;display:block;pointer-events:none';
+        if (id==='bloom') c.style.mixBlendMode='screen';
+        document.body.appendChild(c);
+      });
+      // extract the inline script (the engine) and run it
+      var m = html.match(/<script>([\s\S]*?)<\/script>\s*<\/body>/);
+      if (!m) { document.getElementById('dbg').textContent = 'could not find engine script'; return; }
+      var code = m[1];
+      var s = document.createElement('script'); s.textContent = code; document.body.appendChild(s);
+      // start it + show size info
+      setTimeout(function(){
+        try { postMessage({ fw: 'start' }, '*'); } catch(e){}
+        var fxc = document.getElementById('fx');
+        document.getElementById('dbg').textContent =
+          'inner: ' + innerWidth + 'x' + innerHeight +
+          '\nfx canvas: ' + fxc.width + 'x' + fxc.height +
+          '\ndpr: ' + (window.devicePixelRatio||1) +
+          '\n(tap anywhere to force start)';
+      }, 600);
+      document.body.addEventListener('click', function(){ try { postMessage({ fw:'start' }, '*'); } catch(e){} });
+      document.body.addEventListener('touchstart', function(){ try { postMessage({ fw:'start' }, '*'); } catch(e){} });
+    } catch (e) { document.getElementById('dbg').textContent = 'inject error: ' + e.message; }
+  }).catch(e => { document.getElementById('dbg').textContent = 'fetch failed: ' + e.message; });
+  </script>
+</body>
+</html>
