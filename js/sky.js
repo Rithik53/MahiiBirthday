@@ -313,9 +313,10 @@ const SKY = (() => {
       else nameAlpha = 1;
     })();
   }
+  // gentle, slow fade — ~2.5s for the full fade so "Mahii" lingers before it goes
   function fadeName() {
     (function step() {
-      nameAlpha -= 0.035;
+      nameAlpha -= 0.0067;   // ~2.5s at 60fps
       if (nameAlpha <= 0) { nameAlpha = 0; nameStars = []; }
       else requestAnimationFrame(step);
     })();

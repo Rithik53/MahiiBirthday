@@ -16,6 +16,7 @@
   const seen = new Set();
   let unlockedOnce = false;   // so the unlock shower only fires the first time
   let finaleLanternTimer = null;   // keeps lanterns drifting up on the message page
+  let oldFwTimer = null;           // extra SKY-peony fireworks stream on the grand finale
   let hubButterfly = null;         // the butterfly that rests on the flute
   let musicReady = false;
   let musicWanted = true;
@@ -206,6 +207,7 @@
   function swap(node) {
     // stop the finale's lantern stream + clear the star-name whenever we leave a scene
     if (finaleLanternTimer) { clearInterval(finaleLanternTimer); finaleLanternTimer = null; }
+    if (oldFwTimer) { clearInterval(oldFwTimer); oldFwTimer = null; }
     if (typeof SKY !== "undefined" && SKY.clearName) SKY.clearName();
     clearHubButterfly();
     clearSunflowers();   // remove any viewport-anchored sunflowers from the previous page
@@ -363,7 +365,7 @@
     }));
   }
   function clearGarden() {
-    document.querySelectorAll(".garden-frame, .finale-focus, .garden-glow").forEach((n) => n.remove());
+    document.querySelectorAll(".garden-frame, .finale-focus, .garden-glow, .fireworks-frame").forEach((n) => n.remove());
   }
 
   // rounded-rectangle path (for the thread tying around the text box)
@@ -706,10 +708,13 @@
   // duck the song down while fireworks are bursting (booms up front), then
   // bring it back to the front once the show is over
   const GRAND_DUCK = 0.3;              // quiet level during the fireworks
+  let grandDucked = false;             // true while the song is held quiet under live fireworks
   function duckGrandMusic() {
+    grandDucked = true;
     if (grandMode && musicWanted) fadeAudio(grandAudio, GRAND_DUCK, 900);
   }
   function unduckGrandMusic() {
+    grandDucked = false;
     if (grandMode && musicWanted) fadeAudio(grandAudio, GRAND_VOL, 1400);
   }
 
@@ -725,7 +730,8 @@
       return;
     }
     if (grandMode) {
-      fadeInPlay(grandAudio, 600, 0, GRAND_VOL);
+      // come back at the ducked (quiet) level if fireworks are still live
+      fadeInPlay(grandAudio, 600, 0, grandDucked ? GRAND_DUCK : GRAND_VOL);
     } else if (currentChapterSong) {
       fadeInPlay(chapterAudio, 600);
     } else if (CONFIG.songList && CONFIG.songList.length) {
@@ -1439,6 +1445,27 @@
       setTimeout(() => document.body.classList.remove("shake"), ms || 700);
     };
 
+    // the realistic "Hanabi" fireworks engine, embedded as a transparent backdrop
+    // (our sky/moon/name/messages/floaters all stay on top). It auto-starts and
+    // loops; we tell it to replay the show on each celebration.
+    const fwFrame = document.createElement("iframe");
+    fwFrame.className = "fireworks-frame";
+    fwFrame.setAttribute("tabindex", "-1");
+    fwFrame.setAttribute("aria-hidden", "true");
+    fwFrame.setAttribute("scrolling", "no");
+    fwFrame.src = "fireworks.html?t=" + Date.now();
+    document.body.appendChild(fwFrame);
+    let fwStarted = false;
+    const fwStart = (mode) => {
+      // start the engine ONCE; it loops on its own, so advancing screens must NOT
+      // reset it (that would wipe the in-flight bursts). Booms always play.
+      if (fwStarted) return;
+      fwStarted = true;
+      // "opening" = the ~13s choreographed show (volley -> golden shower -> colour), then random stream
+      const cmd = mode === "opening" ? "opening" : "start";
+      try { fwFrame.contentWindow.postMessage({ fw: cmd }, "*"); } catch (e) { /* ignore */ }
+    };
+
     // each celebration cycles a firework theme + a floating element (all grand)
     const SHOW_THEMES = [
       ["#ff5e7e", "#ffd166", "#7bdff2", "#c8a2ff", "#8affc1", "#ff9f68", "#ffffff"], // classic
@@ -1535,8 +1562,8 @@
       const isLastMsg = msgIdx === MESSAGES.length - 1;
       // make earlier screens' floaters linger so all 4 types coexist by screen 4:
       // screen 1 ~60s, screens 2-3 ~45s, screen 4 = default quick rise
-      const FLOAT_DURS = [60, 45, 45];
-      const floatDur = FLOAT_DURS[msgIdx];             // undefined on the last -> default
+      const FLOAT_DURS = [60, 45, 45, 40];             // last screen also lingers (all-floaters send-off)
+      const floatDur = FLOAT_DURS[msgIdx];
       // cancel any pending "song back to front" from the previous screen, and
       // keep the song ducked (background) while the new show's fireworks are live
       if (unduckTimer) { clearTimeout(unduckTimer); unduckTimer = null; }
@@ -1556,47 +1583,99 @@
       row.style.visibility = "hidden";
       if (spotifyLink) { spotifyLink.style.visibility = "hidden"; spotifyLink.classList.remove("pop-in"); }
 
-      // runs the fireworks + reveals the message and (mid-show) the button
-      const launch = () => {
-        const firstShow = firstRun;                                 // the very first run is the long one
-        const SHOW_LEN = firstShow ? 40000 : 23000;                 // first show ~40s; replays ~23s
+      // launch this screen's floaters (balloons/stars/lanterns/cranes) in a
+      // gentle, lingering stream so earlier screens' floaters still coexist
+      const launchFloaters = () => {
+        try { SKY.launchFloaters(14, floater, false, floatDur); } catch (e) { /* ignore */ }
+        for (let t = 1800; t < 20000; t += 2000)
+          setTimeout(() => { try { SKY.launchFloaters(5, floater, false, floatDur); } catch (e) {} }, t);
+      };
+      // the LAST screen: after a short beat, mix in ALL floater types at random
+      // for the full "everything in the sky at once" moment
+      const launchAllFloaters = () => {
+        const ALL = ["balloon", "star", "lantern", "crane"];
+        const burst = () => {
+          try { SKY.launchFloaters(4 + ((Math.random() * 4) | 0), ALL[(Math.random() * ALL.length) | 0], false, floatDur); } catch (e) {}
+        };
+        for (let t = 5000; t < 40000; t += 1600) setTimeout(burst, t);
+      };
+
+      // runs the fireworks (via the embedded Hanabi engine) + reveals message/button.
+      // The engine loops on its own, so fireworks keep coming the whole time she's
+      // on a screen. On the LAST screen we hold them front-and-centre much longer
+      // (~30s+) as the closing moment before the song swells back.
+      // our original SKY peony bursts, mixed in alongside the Hanabi engine so the
+      // sky stays nice and full. Runs as a managed stream until the screen changes.
+      const startOldFireworks = () => {
+        if (oldFwTimer) return;   // already running — keep it going across screens, don't reset
+        const tick = () => {
+          try {
+            // fuller: a bigger cluster most of the time, plus an extra single pop
+            if (Math.random() < 0.75) SKY.fireworkCluster(4 + ((Math.random() * 4) | 0));
+            else SKY.firework();
+            if (Math.random() < 0.5) SKY.firework();
+          } catch (e) { /* ignore */ }
+        };
+        tick();
+        oldFwTimer = setInterval(tick, 850);    // a denser, more frequent extra stream
+      };
+
+      // start both firework engines (Hanabi iframe + our SKY peonies). Both keep
+      // running continuously across screens — advancing never resets them.
+      const startFireworks = (mode) => {
+        fwStart(mode);              // start the realistic show once (it loops itself)
+        if (mode === "opening") {
+          // hold our extra bursts until the ~13s choreographed opening finishes,
+          // so it owns the sky on its own
+          setTimeout(startOldFireworks, 13000);
+        } else {
+          startOldFireworks();      // + our original bursts, for a fuller sky
+        }
+      };
+
+      const launch = (fwAfterNameFade) => {
+        const firstShow = firstRun;
+        const SHOW_LEN = firstShow ? 40000 : 23000;
         try { duckGrandMusic(); } catch (e) { /* ignore */ }
-        try { SKY.bigGoldFirework(); } catch (e) { /* ignore */ }   // opening golden shot
-        setTimeout(() => bigShow(theme, floater, firstShow, floatDur), 1200);
-        setTimeout(() => { try { SKY.fadeName(); } catch (e) {} revealMessage(); }, 1800);
-        // button appears partway through the show, not after it fully finishes
-        const BTN_AT = Math.min(9000, SHOW_LEN * 0.45);
+        launchFloaters();
+        if (fwAfterNameFade) {
+          // first run: fade the name AWAY (slow ~2.5s). Once it's gone, play the
+          // ~13s choreographed OPENING SHOW (volley -> golden shower -> colourful
+          // full-screen fireworks). Only AFTER the show does the message appear.
+          try { SKY.fadeName(); } catch (e) { /* ignore */ }
+          setTimeout(() => { startFireworks("opening"); }, 2400);
+          setTimeout(() => { revealMessage(); }, 2400 + 13000);   // after the ~13s opening show
+        } else {
+          startFireworks();
+          setTimeout(() => { try { SKY.fadeName(); } catch (e) {} revealMessage(); }, 1800);
+        }
+        // final screen: after ~5s mix in ALL floater types for the big send-off
+        if (isLastMsg) launchAllFloaters();
+        const BTN_AT = firstShow ? 18000 : Math.min(9000, SHOW_LEN * 0.45);
         setTimeout(() => {
           row.style.visibility = "visible"; row.querySelector(".celebrate-btn") && row.classList.add("ready");
           if (spotifyLink && isLastMsg) { spotifyLink.style.visibility = "visible"; spotifyLink.classList.add("pop-in"); }
         }, BTN_AT);
-        // bring the song back to the front once the show winds down (keep it
-        // ducked for the whole live-fireworks window first)
-        unduckTimer = setTimeout(() => { try { unduckGrandMusic(); } catch (e) {} }, SHOW_LEN + 3000);
+        // keep fireworks front-and-centre: on the final screen, hold much longer
+        const DUCK_HOLD = isLastMsg ? 55000 : (SHOW_LEN + 3000);
+        unduckTimer = setTimeout(() => { try { unduckGrandMusic(); } catch (e) {} }, DUCK_HOLD);
       };
 
       if (firstRun) {
-        // first time only: the butterfly swarm uncovers "Mahii", then the show
+        // first time only: the butterfly swarm uncovers "Mahii", then it fades,
+        // and only THEN do the fireworks begin
         try { SKY.clearName(); SKY.nameInStars(CONFIG.herName, true); } catch (e) { /* ignore */ }
         const swarmCount = window.innerWidth <= 600 ? 40 : 220;   // phones get fewer so it stays smooth
         butterflyReveal(swarmCount, () => {
           try { SKY.showName(); } catch (e) { /* ignore */ }
-          const NAME_HOLD = 4000;   // let the name + song breathe before any firework
+          const NAME_HOLD = 5500;   // let the name hold ~5-6s before it fades + fireworks
           setTimeout(() => { try { duckGrandMusic(); } catch (e) {} }, NAME_HOLD - 600);
-          setTimeout(() => {
-            try { SKY.bigGoldFirework(); } catch (e) {}
-            setTimeout(() => bigShow(theme, floater, true, floatDur), 3200);
-            setTimeout(() => { try { SKY.fadeName(); } catch (e) {} revealMessage(); }, 4100);
-            setTimeout(() => {
-              row.style.visibility = "visible"; row.querySelector(".celebrate-btn") && row.classList.add("ready");
-            }, 25000);   // first screen: let the long show breathe before "There's more"
-            unduckTimer = setTimeout(() => { try { unduckGrandMusic(); } catch (e) {} }, NAME_HOLD + 40000 + 3000);
-          }, NAME_HOLD);
+          setTimeout(() => launch(true), NAME_HOLD);
         });
       } else {
         // subsequent celebrations: no intro reveal — just continue to the next show
         try { SKY.showName(); } catch (e) { /* ignore */ }   // keep the name up
-        launch();
+        launch(false);
       }
     }
 

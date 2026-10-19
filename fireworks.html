@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#01030c">
+<title>Hanabi - Summer Night Fireworks</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:transparent;overflow:hidden;overscroll-behavior:none;touch-action:none;
+    font-family:"Hiragino Sans","Yu Gothic","Noto Sans JP","Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;color:#f1e6cf}
+  canvas{position:fixed;left:0;top:0;width:100%;height:100%;display:block;pointer-events:none;background:transparent}
+  /* embedded: the host app draws the sky/stars/moon, so hide this engine's own
+     background sky + skyline canvases, and dial the bloom down so small bursts
+     don't pool into a bright sun-like patch */
+  #sky,#front,#smoke{display:none}
+  #bloom{mix-blend-mode:screen;opacity:.22;filter:blur(5px)}
+  body.lite #bloom{filter:none;opacity:.2}
+  #vignette{display:none}
+
+  #title{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;pointer-events:none;transition:opacity 1.8s ease;padding:0 24px;padding-bottom:12vh}
+  #title.hide{opacity:0}
+  #title h1{margin:0;font-weight:200;font-size:clamp(56px,13vw,148px);letter-spacing:.18em;padding-left:.18em;
+    font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP","Times New Roman",serif;
+    color:#f7e2b0;text-shadow:0 0 28px rgba(255,190,90,.45),0 0 90px rgba(255,150,60,.25)}
+  #title p{margin:10px 0 0;font-size:clamp(11px,1.6vw,14px);letter-spacing:.42em;text-transform:uppercase;color:rgba(241,230,207,.72)}
+
+  #ui{position:fixed;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:10;
+    display:flex;gap:4px;padding:6px;border-radius:999px;background:rgba(10,14,32,.55);
+    border:1px solid rgba(255,220,160,.2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    box-shadow:0 8px 30px rgba(0,0,0,.45);transition:opacity .9s ease}
+  #ui.dim{opacity:.14}
+  #ui:hover,#ui:focus-within{opacity:1}
+  #ui button{appearance:none;border:0;background:transparent;color:#f1e6cf;font:inherit;font-size:11.5px;letter-spacing:.14em;
+    text-transform:uppercase;display:flex;align-items:center;gap:8px;padding:10px 15px;border-radius:999px;cursor:pointer;
+    transition:background .25s,opacity .25s,color .25s;white-space:nowrap;touch-action:manipulation}
+  #ui button:hover:not(:disabled){background:rgba(255,220,160,.14)}
+  #ui button:focus-visible{outline:2px solid #f4c46a;outline-offset:1px}
+  #ui button:disabled{opacity:.32;cursor:default}
+  #ui button.primary{background:linear-gradient(180deg,rgba(244,196,106,.28),rgba(244,160,70,.18));color:#ffeab8;
+    box-shadow:inset 0 0 0 1px rgba(244,196,106,.5)}
+  #ui svg{width:15px;height:15px;fill:currentColor;flex:none}
+  #bPause:not([data-s="paused"]) .i-play{display:none}
+  #bPause[data-s="paused"] .i-pause{display:none}
+  @media (max-width:560px){
+    #ui button{padding:10px 12px}
+    #ui button:not(.primary) span{display:none}
+  }
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<canvas id="smoke"></canvas>
+<canvas id="fx"></canvas>
+<canvas id="front"></canvas>
+<canvas id="bloom"></canvas>
+<div id="vignette"></div>
+
+<!-- embedded: title + UI controls removed; the host app drives start/replay -->
+
+<script>
+(() => {
+'use strict';
+
+/* =====================================================================
+   Utilities
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const TAU = Math.PI * 2, PI = Math.PI;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const pick = arr => arr[(Math.random() * arr.length) | 0];
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+/* ---- burst sound: a soft low "boom" via Web Audio (same character as before) ---- */
+let _ac = null, _audioOn = true;
+function boomSound(){
+  if (!_audioOn) return;
+  try {
+    _ac = _ac || new (window.AudioContext || window.webkitAudioContext)();
+    if (_ac.state === 'suspended') _ac.resume();
+    const now = _ac.currentTime;
+    const o = _ac.createOscillator(), g = _ac.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(180, now);
+    o.frequency.exponentialRampToValueAtTime(55, now + 0.25);
+    g.gain.setValueAtTime(0.32, now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+    o.connect(g); g.connect(_ac.destination);
+    o.start(now); o.stop(now + 0.36);
+  } catch (e) { /* ignore */ }
+}
+// parent can toggle sound (mute button) via postMessage
+addEventListener('message', (e) => { if (e && e.data && e.data.fwAudio !== undefined) _audioOn = !!e.data.fwAudio; });
+
+/* =====================================================================
+   Quality / device scaling
+   ===================================================================== */
+const isTouch = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+const Q = { base: 1, scale: 1, max: 5200, dprCap: 2, smoke: 70, mobile: false };
+(function setupQuality(){
+  const mobile = isTouch || Math.min(innerWidth, innerHeight) < 600;
+  Q.mobile = mobile;
+  if (mobile) { Q.base = .55; Q.max = 2300; Q.dprCap = 1.5; Q.smoke = 40; document.body.classList.add('lite'); }
+  const mem = navigator.deviceMemory;
+  if (mem && mem <= 2) { Q.base *= .7; Q.max = Math.min(Q.max, 1600); Q.dprCap = 1.25; }
+})();
+
+/* =====================================================================
+   Canvases
+   ===================================================================== */
+const skyC = $('sky'), smokeC = $('smoke'), fxC = $('fx'), frontC = $('front'), bloomC = $('bloom');
+const sctx = skyC.getContext('2d');
+const kctx = smokeC.getContext('2d');
+const fctx = fxC.getContext('2d');
+const rctx = frontC.getContext('2d');
+const bctx = bloomC.getContext('2d');
+let W = 1, H = 1, dpr = 1, S = 1;           // S = composition unit (px)
+const BS = 0.25;                             // bloom canvas scale
+
+/* =====================================================================
+   Colour registry (pre-built rgba strings and glow sprites)
+   ===================================================================== */
+const COLORS = [], colorKey = new Map();
+function hsl2rgb(h, s, l){
+  h = ((h % 360) + 360) % 360; s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
+}
+function col(h, s, l){
+  h = Math.round(h / 3) * 3; s = Math.round(s / 4) * 4; l = Math.round(l / 3) * 3;
+  const key = h + ',' + s + ',' + l;
+  let i = colorKey.get(key); if (i !== undefined) return i;
+  const [r, g, b] = hsl2rgb(h, s, l), st = [];
+  for (let k = 0; k < 16; k++) st.push(`rgba(${r},${g},${b},${(k / 15).toFixed(3)})`);
+  COLORS.push({ r, g, b, s: st, sprite: null });
+  i = COLORS.length - 1; colorKey.set(key, i); return i;
+}
+const rgba = (ci, a) => COLORS[ci].s[a <= 0 ? 0 : a >= 1 ? 15 : (a * 15 + .5) | 0];
+function sprite(ci){
+  const c = COLORS[ci]; if (c.sprite) return c.sprite;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, `rgba(${Math.min(255,c.r+130)},${Math.min(255,c.g+130)},${Math.min(255,c.b+130)},1)`);
+  gr.addColorStop(.16, `rgba(${c.r},${c.g},${c.b},.62)`);
+  gr.addColorStop(.45, `rgba(${c.r},${c.g},${c.b},.15)`);
+  gr.addColorStop(1, `rgba(${c.r},${c.g},${c.b},0)`);
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  c.sprite = cv; return cv;
+}
+function makeFam(h, s, l, endShift){
+  return { hot: col(h + 4, Math.max(20, s * .35), 90), main: col(h, s, l), end: col(h + endShift, s, Math.max(30, l - 18)) };
+}
+const F = {
+  gold:    makeFam(42, 100, 60, -14),
+  ruby:    makeFam(352, 95, 55, -6),
+  blue:    makeFam(215, 100, 60, 8),
+  emerald: makeFam(140, 90, 52, 10),
+  magenta: makeFam(315, 95, 60, -8),
+  violet:  makeFam(270, 90, 64, -6),
+  cyan:    makeFam(186, 100, 58, 6),
+  orange:  makeFam(24, 100, 56, -8),
+  white:   { hot: col(48, 25, 97), main: col(45, 18, 92), end: col(40, 45, 68) },
+  spark:   { hot: col(48, 30, 96), main: col(44, 90, 72), end: col(30, 100, 50) }
+};
+const goldTo = f => ({ hot: F.gold.main, main: f.main, end: f.end });
+
+/* soft smoke sprite */
+const smokeSprite = (() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(210,214,235,.55)'); gr.addColorStop(.5, 'rgba(190,196,225,.22)'); gr.addColorStop(1, 'rgba(190,196,225,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return cv;
+})();
+
+/* =====================================================================
+   Scene: sky, stars, skyline, haze (static layers)
+   ===================================================================== */
+function skyline(g, o){
+  const rng = mulberry32(o.seed), ux = clamp(W / 1400, .55, 1.4);
+  let x = -rng() * 30 * ux; const B = [];
+  while (x < W){
+    const w = lerp(o.wMin, o.wMax, rng()) * ux, h = lerp(o.hMin, o.hMax, Math.pow(rng(), 1.4)) * H;
+    B.push({ x, w, h, t: rng() }); x += w * (.9 + rng() * .12);
+  }
+  g.fillStyle = o.fill;
+  for (const b of B){
+    g.fillRect(b.x, H - b.h, b.w + 1, b.h + 2);
+    if (b.t > .72) g.fillRect(b.x + b.w * .2, H - b.h * 1.18, b.w * .6, b.h * .18 + 1);
+    if (b.t < .1)  g.fillRect(b.x + b.w * .45, H - b.h * 1.35, 1.5 * ux, b.h * .35);
+  }
+  g.fillStyle = o.win;
+  const ww = Math.max(1, 1.7 * ux), wh = Math.max(1.4, 2.6 * ux), gx = ww * 2.7, gy = wh * 2.3;
+  for (const b of B)
+    for (let wy = H - b.h + 5 * ux; wy < H - 3; wy += gy)
+      for (let wx = b.x + 3 * ux; wx < b.x + b.w - 3 * ux; wx += gx)
+        if (rng() < o.rate) g.fillRect(wx, wy, ww, wh);
+  if (o.neon){
+    const cols = ['rgba(255,70,150,.30)', 'rgba(70,200,255,.28)', 'rgba(255,170,60,.30)'];
+    for (const b of B) if (b.t > .35 && b.t < .5 && b.h > H * .05){
+      g.fillStyle = cols[(b.x | 0) % 3];
+      g.fillRect(b.x + b.w * .12, H - b.h + b.h * .12, b.w * .76, Math.max(2, b.h * .07));
+    }
+  }
+}
+function towers(g){
+  const ux = clamp(W / 1400, .55, 1.4);
+  g.fillStyle = '#0a1029';
+  // lattice-tower silhouette
+  let tx = W * .16, tb = H + 2, th = H * .30, tw = 40 * ux;
+  g.beginPath(); g.moveTo(tx - tw / 2, tb);
+  g.quadraticCurveTo(tx - tw * .12, tb - th * .35, tx - tw * .025, tb - th);
+  g.lineTo(tx + tw * .025, tb - th);
+  g.quadraticCurveTo(tx + tw * .12, tb - th * .35, tx + tw / 2, tb); g.closePath(); g.fill();
+  g.fillRect(tx - tw * .2, tb - th * .42, tw * .4, th * .022);
+  g.fillRect(tx - tw * .1, tb - th * .68, tw * .2, th * .016);
+  g.fillStyle = 'rgba(255,80,60,.95)'; g.fillRect(tx - 1.2, tb - th - 3, 2.6, 2.6);
+  g.fillStyle = 'rgba(255,150,70,.55)';
+  for (let i = 1; i < 7; i++) g.fillRect(tx - tw * (.5 - i * .06) * .6 - 1, tb - th * (i * .1), 1.6, 1.6);
+  // slender broadcast tower
+  tx = W * .85; th = H * .38; tw = 15 * ux; g.fillStyle = '#0a1029';
+  g.beginPath(); g.moveTo(tx - tw / 2, tb); g.lineTo(tx - tw * .16, tb - th * .78); g.lineTo(tx - tw * .05, tb - th);
+  g.lineTo(tx + tw * .05, tb - th); g.lineTo(tx + tw * .16, tb - th * .78); g.lineTo(tx + tw / 2, tb); g.closePath(); g.fill();
+  for (const k of [.64, .8]){ g.beginPath(); g.ellipse(tx, tb - th * k, tw * .7, tw * .38, 0, 0, TAU); g.fill(); }
+  g.fillStyle = 'rgba(255,90,70,.95)'; g.fillRect(tx - 1.2, tb - th - 3, 2.6, 2.6);
+  g.fillStyle = 'rgba(160,200,255,.45)'; g.fillRect(tx - 1, tb - th * .8 - 1, 2, 2);
+}
+function drawSky(){
+  const g = sctx; g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  let gr = g.createLinearGradient(0, 0, 0, H);
+  gr.addColorStop(0, '#00020a'); gr.addColorStop(.4, '#020718'); gr.addColorStop(.72, '#07112a');
+  gr.addColorStop(.9, '#10183a'); gr.addColorStop(1, '#1d1c3e');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  const rng = mulberry32(77), ns = Math.min(260, Math.round(W * H / 7500));
+  for (let i = 0; i < ns; i++){
+    const x = rng() * W, y = Math.pow(rng(), 1.5) * H * .78, a = .12 + rng() * .45, r = rng() < .1 ? 1.1 : .6;
+    g.fillStyle = `rgba(205,218,255,${a.toFixed(2)})`; g.fillRect(x, y, r, r);
+  }
+  gr = g.createRadialGradient(W * .5, H * 1.02, 0, W * .5, H * 1.02, Math.max(W, H) * .75);
+  gr.addColorStop(0, 'rgba(255,150,100,.20)'); gr.addColorStop(.5, 'rgba(150,90,140,.08)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  towers(g);
+  skyline(g, { seed: 21, hMin: .04, hMax: .15, wMin: 22, wMax: 70, fill: '#0b1230', win: 'rgba(190,185,160,.22)', rate: .10, neon: true });
+  gr = g.createLinearGradient(0, H * .6, 0, H);
+  gr.addColorStop(0, 'rgba(90,95,150,0)'); gr.addColorStop(1, 'rgba(110,100,160,.22)');
+  g.fillStyle = gr; g.fillRect(0, H * .6, W, H * .4);
+}
+function drawFront(){
+  const g = rctx; g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const gr = g.createLinearGradient(0, H * .72, 0, H);
+  gr.addColorStop(0, 'rgba(55,60,110,0)'); gr.addColorStop(1, 'rgba(55,60,110,.18)');
+  g.fillStyle = gr; g.fillRect(0, H * .72, W, H * .28);
+  skyline(g, { seed: 5, hMin: .02, hMax: .075, wMin: 26, wMax: 84, fill: '#02030a', win: 'rgba(255,208,140,.55)', rate: .14, neon: true });
+}
+
+/* =====================================================================
+   Particle system (pooled)
+   ===================================================================== */
+class Particle {
+  constructor(){ this.reset(); }
+  reset(){
+    this.x = this.y = this.px = this.py = 0; this.vx = this.vy = 0;
+    this.age = 0; this.life = 1; this.drag = 1; this.grav = 0;
+    this.size = 1.5; this.br = 1; this.fo = .5;
+    this.ch = -1; this.cm = 0; this.ce = 0; this.uh = .08; this.ue = .65;
+    this.mode = 0; this.ti = .07; this.ta = 0;
+    this.hax = this.hay = this.hbx = this.hby = 0;
+    this.tw = 0; this.fq = 20; this.ph = 0; this.glow = false;
+    this.crack = 0; this.crackAt = -1; this.tag = 0;
+    this.emit = 0; this.ea = 0; this.fam = null;
+  }
+}
+const ps = [], pool = [];
+let created = 0;
+function acquire(){
+  let p = pool.pop();
+  if (!p){ if (created >= Q.max) return null; created++; p = new Particle(); }
+  else p.reset();
+  ps.push(p); return p;
+}
+const capLeft = () => Q.max - ps.length;
+let BURSTOFF = 0;
+function runBurst(type, x, y, o){ BURSTOFF = .085; try { Burst[type](x, y, o); } finally { BURSTOFF = 0; } }
+function mk(x, y, vx, vy, life, size, f, drag, grav, mode, ti){
+  const p = acquire(); if (!p) return null;
+  if (BURSTOFF){ const t = BURSTOFF * rnd(.5, 1.5); x += vx * t; y += vy * t; }
+  p.x = p.px = p.hax = p.hbx = x; p.y = p.py = p.hay = p.hby = y;
+  p.vx = vx; p.vy = vy; p.life = life; p.size = size;
+  p.ch = f.hot; p.cm = f.main; p.ce = f.end;
+  p.drag = drag; p.grav = grav; p.mode = mode; p.ti = ti || .07;
+  p.ph = Math.random() * TAU; return p;
+}
+let DX = 0, DY = 0;
+function sph(){ const z = rnd(-1, 1), a = rnd(0, TAU), r = Math.sqrt(1 - z * z); DX = Math.cos(a) * r; DY = Math.sin(a) * r; }
+const cnt = n => Math.max(10, Math.min(Math.round(n * .6 * Q.base * Q.scale), (capLeft() * .8) | 0));
+
+function pop(p){
+  if (ps.length > Q.max * .94) return;
+  const n = p.crack || 3;
+  for (let i = 0; i < n; i++){
+    const a = rnd(0, TAU), sp = S * rnd(.03, .15);
+    const c = mk(p.x, p.y, Math.cos(a) * sp, Math.sin(a) * sp, rnd(.18, .42), rnd(.8, 1.3), F.spark, 3.2, S * .04, 0);
+    if (!c) return; c.tw = 1; c.fq = rnd(40, 80); c.fo = .3; c.br = 1.1;
+  }
+  const g = mk(p.x, p.y, 0, 0, .12, 3, F.white, 1, 0, 0);
+  if (g){ g.glow = true; g.fo = .2; g.uh = 0; }
+}
+function stepParticle(p, dt, wind){
+  p.age += dt;
+  if (p.age >= p.life) return false;
+  if (p.crackAt >= 0 && p.age >= p.crackAt){ pop(p); return false; }
+  const k = Math.exp(-p.drag * dt);
+  p.vx = p.vx * k + wind * dt; p.vy = p.vy * k + p.grav * dt;
+  p.px = p.x; p.py = p.y; p.x += p.vx * dt; p.y += p.vy * dt;
+  if (p.mode === 1){
+    p.ta += dt;
+    if (p.ta >= p.ti){ p.ta -= p.ti; p.hax = p.hbx; p.hay = p.hby; p.hbx = p.x; p.hby = p.y; }
+  }
+  if (p.emit > 0){
+    p.ea += p.emit * dt;
+    while (p.ea >= 1){
+      p.ea -= 1; if (ps.length > Q.max * .92) break;
+      const s = mk(p.x, p.y, rnd(-1, 1) * S * .03, rnd(-1, 1) * S * .03, rnd(.3, .65), rnd(.8, 1.3), p.fam, 2.4, S * .12, 0);
+      if (s){ s.tw = .7; s.fo = .3; s.br = .9; }
+    }
+  }
+  return true;
+}
+function drawParticles(ctx){
+  const n = ps.length, dim = 1 - .4 * Math.min(1, n / (Q.max * .5));
+  for (let i = 0; i < n; i++){
+    const p = ps[i], u = p.age / p.life;
+    let a = u < .08 ? u * 12.5 : 1;
+    if (u > p.fo) a *= (1 - u) / (1 - p.fo);
+    if (p.tw > 0) a *= 1 - p.tw * Math.random() * (.5 + .5 * Math.sin(p.ph + p.age * p.fq));
+    a *= p.br * dim;
+    const lv = (a * 15 + .5) | 0; if (lv <= 0) continue;
+    const L = lv > 15 ? 15 : lv;
+    const ci = (u < p.uh && p.ch >= 0) ? p.ch : (u < p.ue ? p.cm : p.ce);
+    const c = COLORS[ci], w = p.size * (1 - .35 * u);
+    if (p.mode === 1){
+      const lt = (L * .38 + .5) | 0;
+      if (lt > 0){ ctx.strokeStyle = c.s[lt]; ctx.lineWidth = w * .7; ctx.beginPath(); ctx.moveTo(p.hax, p.hay); ctx.lineTo(p.hbx, p.hby); ctx.stroke(); }
+      ctx.strokeStyle = c.s[L]; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(p.hbx, p.hby); ctx.lineTo(p.x, p.y); ctx.stroke();
+    } else {
+      ctx.strokeStyle = c.s[L]; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(p.px, p.py); ctx.lineTo(p.x, p.y); ctx.stroke();
+    }
+    if (p.glow){
+      const r = w * 5; ctx.globalAlpha = Math.min(1, a) * .85;
+      ctx.drawImage(sprite(ci), p.x - r, p.y - r, r * 2, r * 2); ctx.globalAlpha = 1;
+    }
+  }
+}
+
+/* =====================================================================
+   Smoke, flashes and global light
+   ===================================================================== */
+const smoke = [], flashes = [], tint = { r: 255, g: 200, b: 120 };
+let light = 0;
+function puff(x, y, r, a, life){
+  return; // smoke disabled
+  if (smoke.length >= Q.smoke) smoke.shift();
+  smoke.push({ x, y, r, r1: r * rnd(2.2, 3.6), a, age: 0, life, vx: rnd(-6, 6), vy: rnd(-9, -2) });
+}
+function smokeBurst(x, y, R){
+  return; // smoke disabled
+  const k = Q.mobile ? 3 : 5;
+  for (let i = 0; i < k; i++) puff(x + rnd(-.35, .35) * R, y + rnd(-.3, .3) * R, R * rnd(.25, .45), rnd(.4, .6), rnd(5, 8));
+}
+function flash(x, y, r, ci, a, decay){
+  // embedded: smaller, dimmer flashes + capped global light so many small bursts
+  // don't pool into a bright sun-like patch in the center
+  if (flashes.length > 40) flashes.shift();
+  flashes.push({ x, y, r: r * .62, ci, a: a * .5, decay: decay * 1.25 });
+  const c = COLORS[ci]; light = Math.min(1.1, light + a * .12);
+  tint.r = lerp(tint.r, c.r, .3); tint.g = lerp(tint.g, c.g, .3); tint.b = lerp(tint.b, c.b, .3);
+}
+
+/* =====================================================================
+   Burst patterns
+   ===================================================================== */
+const Burst = {
+  chrysanthemum(x, y, o){
+    const d = o.depth || 1, R = o.R * d, n = cnt(o.n * d), f = o.fam, f2 = o.fam2 || f, drag = 1.5;
+    const ax = rnd(.93, 1.07), ay = rnd(.93, 1.07);
+    for (let i = 0; i < n; i++){
+      sph(); const inner = Math.random() < .34, shell = inner ? rnd(.5, .8) : rnd(.75, 1.04), sp = R * drag * shell;
+      const p = mk(x, y, DX * ax * sp, DY * ay * sp, rnd(2, 3.1), rnd(1.3, 2.1) * (.75 + .25 * d), inner ? f2 : f, drag, S * .075, 1, .055);
+      if (!p) break;
+      p.tw = .55; p.fq = rnd(16, 38); p.fo = .42; p.br = .45 + .35 * d; p.tag = o.tag || 0;
+      if (o.uh) p.uh = o.uh;
+      if (o.crack && Math.random() < o.crack){ p.crack = Q.mobile ? 3 : 4; p.crackAt = p.life * rnd(.55, .9); }
+      if (Math.random() < .07){ p.glow = true; p.size *= 1.4; }
+    }
+    // white pistil
+    const m = 0;
+    for (let i = 0; i < m; i++){
+      sph(); const sp = R * drag * rnd(.12, .3);
+      const p = mk(x, y, DX * sp, DY * sp, rnd(.9, 1.5), rnd(1.4, 2), F.white, drag, 0, 0);
+      if (!p) break; p.tw = .5; p.fo = .4; p.br = d;
+    }
+  },
+  peony(x, y, o){
+    const d = o.depth || 1, R = o.R * d, n = cnt(o.n * d), f = o.fam, f2 = o.fam2 || f, drag = 2.3;
+    for (let i = 0; i < n; i++){
+      sph(); const inner = Math.random() < .42, shell = inner ? rnd(.42, .66) : rnd(.7, 1), sp = R * drag * shell;
+      const p = mk(x, y, DX * sp, DY * sp, rnd(1.5, 2.2), rnd(2.2, 3.2) * (.75 + .25 * d), inner ? f2 : f, drag, S * .05, 0);
+      if (!p) break;
+      p.tw = .3; p.fq = rnd(16, 32); p.fo = .5; p.br = .6 + .4 * d; p.tag = o.tag || 0;
+      if (o.uh) p.uh = o.uh;
+      if (Math.random() < .05){ p.glow = true; p.size *= 1.3; }
+    }
+  },
+  willow(x, y, o){
+    const d = o.depth || 1, R = o.R * d, n = cnt(o.n * d), f = o.fam, drag = 1.6;
+    const ax = rnd(.94, 1.06), ay = rnd(.94, 1.06);
+    for (let i = 0; i < n; i++){
+      sph(); const sp = R * drag * rnd(.55, 1);
+      const p = mk(x, y, DX * ax * sp, DY * ay * sp, rnd(4.2, 6.4) * (.8 + .2 * d), rnd(1.4, 2.3) * (.75 + .25 * d), f, drag, S * .2, 1, .12);
+      if (!p) break;
+      p.tw = .7; p.fq = rnd(14, 34); p.fo = .3; p.uh = .05; p.ue = .5; p.br = .6 + .4 * d; p.tag = o.tag || 0;
+      if (o.crack && Math.random() < o.crack){ p.crack = Q.mobile ? 3 : 4; p.crackAt = p.life * rnd(.6, .92); }
+      if (Math.random() < .05){ p.glow = true; p.size *= 1.5; }
+    }
+  },
+  starburst(x, y, o){
+    const d = o.depth || 1, R = o.R * d, f = o.fam, f2 = o.fam2 || F.white, drag = 1.3;
+    const n = Math.max(16, Math.round(rnd(30, 42) * (Q.mobile ? .7 : 1))), off = rnd(0, TAU);
+    for (let i = 0; i < n; i++){
+      const a = off + i / n * TAU + rnd(-.04, .04), sp = R * drag * rnd(.92, 1.05);
+      const p = mk(x, y, Math.cos(a) * sp, Math.sin(a) * sp, rnd(1.8, 2.5), rnd(2.2, 3) * (.75 + .25 * d), f, drag, S * .05, 1, .045);
+      if (!p) break; p.tw = .25; p.fo = .5; p.br = .7 + .3 * d; p.emit = Q.mobile ? 8 : 14; p.fam = f;
+    }
+    for (let i = 0; i < (n >> 1); i++){
+      const a = off + (i + .5) / (n >> 1) * TAU, sp = R * drag * .52;
+      const p = mk(x, y, Math.cos(a) * sp, Math.sin(a) * sp, rnd(1.2, 1.8), rnd(1.8, 2.4), f2, drag, S * .05, 1, .045);
+      if (!p) break; p.tw = .4; p.fo = .5; p.br = d;
+    }
+  },
+  glitter(x, y, o){
+    const d = o.depth || 1, R = o.R * d, n = cnt(o.n * d), f = o.fam, drag = 2;
+    for (let i = 0; i < n; i++){
+      sph(); const sp = R * drag * rnd(.5, 1);
+      const p = mk(x, y, DX * sp, DY * sp, rnd(2.2, 3.8), rnd(2.8, 4.4) * (.7 + .3 * d), Math.random() < .3 ? (o.fam2 || f) : f, drag, S * .06, 0);
+      if (!p) break; p.glow = true; p.tw = .95; p.fq = rnd(22, 46); p.fo = .5; p.br = .6 + .4 * d;
+    }
+  },
+  crackle(x, y, o){
+    const d = o.depth || 1, R = o.R * d, n = cnt(o.n * d), f = o.fam, drag = 2.4;
+    for (let i = 0; i < n; i++){
+      sph(); const sp = R * drag * rnd(.5, 1);
+      const p = mk(x, y, DX * sp, DY * sp, rnd(.45, .95), rnd(1.2, 1.8), f, drag, S * .04, 0);
+      if (!p) break; p.tw = .5; p.fo = .6; p.br = .7 + .3 * d;
+      p.crack = Q.mobile ? 3 : 4; p.crackAt = p.life * rnd(.7, .97);
+    }
+  }
+};
+
+const recent = [];
+function nudge(x, y, R){
+  while (recent.length && Sched.t - recent[0].t > 1.6) recent.shift();
+  const score = (cx, cy) => {
+    let m = 1e9;
+    for (const r of recent){ const dd = Math.hypot(cx - r.x, cy - r.y) - (R + r.r) * .8; if (dd < m) m = dd; }
+    return m;
+  };
+  let bx = x, by = y, best = score(x, y);
+  for (let k = 0; k < 10 && best < 0; k++){
+    const a = rnd(0, TAU), d = rnd(.3, 1.5) * R;
+    const cx = clamp(x + Math.cos(a) * d, W * .06, W * .94), cy = clamp(y + Math.sin(a) * d * .7, H * .13, H * .5);
+    const sc = score(cx, cy);
+    if (sc > best){ best = sc; bx = cx; by = cy; }
+  }
+  recent.push({ x: bx, y: by, r: R, t: Sched.t });
+  return [bx, by];
+}
+function explode(x, y, o){
+  const d = o.depth || 1; o.depth = d;
+  const R = o.R * d, f = o.fam;
+  if (!o.noNudge){ const q = nudge(x, y, R); x = q[0]; y = q[1]; }
+  if (R > S * .14) smokeBurst(x, y, R);
+  if (!o.silent) boomSound();   // the burst "boom"
+  runBurst(o.type, x, y, o);
+  if (o.sec){
+    const k = Math.ceil(o.sec * (Q.mobile ? .4 : .55));
+    for (let i = 0; i < k; i++) Sched.after(rnd(.18, 1.4), () => {
+      const a = rnd(0, TAU), r = rnd(.12, .62) * R;
+      explode(x + Math.cos(a) * r, y + Math.sin(a) * r * .9, {
+        type: pick(['crackle', 'crackle', 'glitter', 'peony']), R: o.R * rnd(.16, .26), n: rnd(60, 100),
+        fam: pick([f, F.gold, F.white]), depth: d * rnd(.7, .9), noNudge: true
+      });
+    });
+  }
+}
+
+/* =====================================================================
+   Rockets
+   ===================================================================== */
+const rockets = [];
+class Rocket {
+  constructor(o){
+    this.x0 = o.x0; this.y0 = o.y0; this.x1 = o.x1; this.y1 = o.y1;
+    this.dur = o.dur || 3; this.kind = o.kind || 'line'; this.onBurst = o.onBurst;
+    this.bend = o.bend || 0; this.wob = o.wob || 0; this.fx = o.fx !== false;
+    this.sz = this.kind === 'hero' ? 1.35 : this.kind === 'ember' ? .8 : 1;
+    this.rate = o.rate || (this.kind === 'hero' ? 150 : this.kind === 'ember' ? 40 : 65);
+    this.age = -(o.delay || 0); this.u = 0; this.started = false; this.dead = false;
+    this.x = this.px = o.x0; this.y = this.py = o.y0;
+    this.trail = []; this.ta = 0; this.sa = 0; this.sm = 0; this.ph = rnd(0, TAU);
+  }
+  launchFx(){
+    if (!this.fx) return;
+    const hero = this.kind === 'hero';
+    flash(this.x0, this.y0, S * .07, F.gold.main, .25, 5);
+    const n = Math.round((hero ? 20 : 9) * Q.base * Q.scale);
+    for (let i = 0; i < n; i++){
+      const a = -PI / 2 + rnd(-1, 1) * 1.05, sp = S * rnd(.08, .34);
+      const p = mk(this.x0, this.y0, Math.cos(a) * sp, Math.sin(a) * sp, rnd(.35, 1), rnd(1, 2.2), F.gold, 2.2, S * .3, 0);
+      if (!p) break; p.tw = .8; p.fo = .4;
+    }
+  }
+  update(dt){
+    this.age += dt; if (this.age < 0) return;
+    if (!this.started){ this.started = true; this.launchFx(); }
+    this.u = Math.min(1, this.age / this.dur);
+    const u = this.u, f = .3 * u + .7 * (u * u * (3 - 2 * u));        // accelerating launch, easing at apex
+    this.px = this.x; this.py = this.y;
+    this.x = lerp(this.x0, this.x1, f) + Math.sin(u * TAU * 2.2 + this.ph) * this.wob * (1 - u * .6) + this.bend * Math.sin(f * PI);
+    this.y = lerp(this.y0, this.y1, f);
+    this.ta += dt;
+    const maxT = this.kind === 'ember' ? 16 : 34;
+    while (this.ta >= .03){ this.ta -= .03; this.trail.push(this.x, this.y); if (this.trail.length > maxT * 2) this.trail.splice(0, 2); }
+    this.sparks(dt);
+    if (this.u >= 1){ this.dead = true; if (this.onBurst) this.onBurst(this.x, this.y); }
+  }
+  sparks(dt){
+    this.sa += this.rate * Q.base * Math.max(.5, Q.scale) * dt * (.5 + .8 * this.u);
+    let n = this.sa | 0; this.sa -= n;
+    const dx = this.x - this.px, dy = this.y - this.py, dl = Math.hypot(dx, dy) || 1, ux = dx / dl, uy = dy / dl, sz = this.sz;
+    while (n-- > 0){
+      if (ps.length > Q.max * .9) break;
+      const t = Math.random(), sx = this.px + dx * t + rnd(-1.2, 1.2), sy = this.py + dy * t + rnd(-1.2, 1.2);
+      const ember = Math.random() < .2, back = rnd(.02, .1) * S;
+      const p = mk(sx, sy, -ux * back + rnd(-1, 1) * S * .04, -uy * back + rnd(-.3, 1) * S * .03,
+        ember ? rnd(1.3, 2.3) : rnd(.45, 1.25), (ember ? rnd(1.9, 2.8) : rnd(.8, 1.6)) * sz, F.gold,
+        ember ? .9 : 1.7, S * (ember ? .3 : .2), 0);
+      if (!p) break;
+      p.tw = .85; p.fo = .35; p.fq = rnd(20, 45); p.br = ember ? .95 : .85;
+      if (ember && Math.random() < .35) p.glow = true;
+    }
+  }
+  draw(ctx){
+    if (this.age < 0 || this.dead || !this.started) return;
+    const tr = this.trail, n = tr.length >> 1, sz = this.sz, gold = F.gold;
+    if (n > 0){
+      let lx = tr[0], ly = tr[1];
+      for (let i = 1; i <= n; i++){
+        const nx = i < n ? tr[2 * i] : this.x, ny = i < n ? tr[2 * i + 1] : this.y, k = i / n;
+        ctx.strokeStyle = rgba(gold.main, .06 + .5 * k * k); ctx.lineWidth = (.6 + 1.5 * k) * sz;
+        ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(nx, ny); ctx.stroke(); lx = nx; ly = ny;
+      }
+    }
+    const u = this.u, rr = (6 + 14 * u * u) * sz * (.92 + .16 * Math.random());
+    ctx.globalAlpha = .6; ctx.drawImage(sprite(gold.main), this.x - rr, this.y - rr, rr * 2, rr * 2);
+    const r2 = rr * .45; ctx.globalAlpha = 1; ctx.drawImage(sprite(F.white.hot), this.x - r2, this.y - r2, r2 * 2, r2 * 2);
+    if (u > .25 && this.kind !== 'ember'){                      // intensifying flare spikes
+      const L = (4 + 18 * u) * sz * (.8 + .4 * Math.random());
+      ctx.strokeStyle = rgba(gold.hot, .28 * u); ctx.lineWidth = .9;
+      ctx.beginPath(); ctx.moveTo(this.x - L, this.y); ctx.lineTo(this.x + L, this.y);
+      ctx.moveTo(this.x, this.y - L * .8); ctx.lineTo(this.x, this.y + L * .8); ctx.stroke();
+    }
+  }
+}
+const launch = o => rockets.push(new Rocket(o));
+
+/* =====================================================================
+   Scheduler (show clock - pauses with the show)
+   ===================================================================== */
+const Sched = {
+  t: 0, list: [],
+  reset(){ this.t = 0; this.list.length = 0; },
+  at(t, fn){ this.list.push({ t, fn }); },
+  after(d, fn){ this.list.push({ t: this.t + d, fn }); },
+  update(dt){
+    this.t += dt;
+    for (let i = 0; i < this.list.length;){
+      const e = this.list[i];
+      if (e.t <= this.t){ this.list.splice(i, 1); e.fn(); } else i++;
+    }
+  }
+};
+
+/* =====================================================================
+   Show sequence
+   ===================================================================== */
+let ending = false, finaleStarted = false;
+
+// PHASE 1 - the grand golden rocket
+function phase1(){
+  const x = W * .5;
+  launch({
+    kind: 'hero', x0: x, y0: H * .94, x1: x + rnd(-.012, .012) * W, y1: H * (H > W ? .30 : .27),
+    dur: 3.6, wob: S * .004, bend: rnd(-.02, .02) * W, onBurst: (bx, by) => phase2(bx, by)
+  });
+}
+
+// PHASE 2 - massive golden shower
+function phase2(bx, by){
+  const R = Math.min(S * .46, W * .47);
+  smokeBurst(bx, by, R);
+  runBurst('willow', bx, by, { R, n: 820, fam: F.gold, depth: 1, crack: .16, tag: 1 });
+  runBurst('chrysanthemum', bx, by, { R: R * .62, n: 300, fam: F.gold, fam2: F.white, depth: 1, tag: 1 });
+  runBurst('glitter', bx, by, { R: R * .95, n: 70, fam: F.gold, fam2: F.white, depth: 1 });
+  const k = Q.mobile ? 4 : 5;
+  for (let i = 0; i < k; i++) Sched.after(rnd(.2, 1.7), () => {
+    const a = rnd(0, TAU), r = rnd(.1, .6) * R;
+    explode(bx + Math.cos(a) * r, by + Math.sin(a) * r * .85, {
+      type: pick(['crackle', 'crackle', 'glitter', 'peony']), R: R * rnd(.12, .2), n: rnd(60, 110),
+      fam: pick([F.gold, F.gold, F.white, F.orange]), depth: rnd(.7, 1)
+    });
+  });
+  Sched.after(1.7, () => phase3(bx, by, R));
+  Sched.after(5.4, phase4);
+}
+
+// PHASE 3 - colour emerges from the golden canopy
+function canopySrc(){
+  for (let k = 0; k < 24; k++){
+    const p = ps[(Math.random() * ps.length) | 0]; if (!p) break;
+    const u = p.age / p.life;
+    if (p.tag === 1 && u > .25 && u < .75 && p.y > H * .2 && p.y < H * .65) return p;
+  }
+  return null;
+}
+function phase3(bx, by, R){
+  const specs = [
+    { fam: F.ruby, type: 'chrysanthemum', fam2: F.white },
+    { fam: F.blue, type: 'peony', fam2: F.cyan },
+    { fam: F.emerald, type: 'chrysanthemum', fam2: F.gold },
+    { fam: F.magenta, type: 'peony', fam2: F.violet },
+    { fam: F.cyan, type: 'starburst' },
+    { fam: F.orange, type: 'willow' },
+    { fam: F.violet, type: 'chrysanthemum', fam2: F.magenta },
+    { fam: F.ruby, type: 'peony', fam2: F.white },
+    { fam: F.blue, type: 'chrysanthemum', fam2: F.cyan },
+    { fam: F.emerald, type: 'peony', fam2: F.gold },
+    { fam: F.gold, type: 'chrysanthemum', fam2: F.orange },
+    { fam: F.magenta, type: 'chrysanthemum', fam2: F.white }
+  ];
+  specs.forEach((sp, i) => Sched.after(i * .38 + rnd(0, .2), () => emerge(sp, i)));
+  function emerge(sp, i){
+    const spread = Math.min(R * 1.2, W * .42);
+    const tx = clamp(bx + rnd(-1, 1) * spread, W * .1, W * .9);
+    const ty = clamp(by + rnd(-.25, .55) * R, H * .17, H * .5);
+    const src = canopySrc();
+    let x0 = src ? src.x : tx + rnd(-.06, .06) * W, y0 = src ? src.y : ty + H * .14;
+    if (y0 < ty + H * .06) y0 = ty + H * rnd(.07, .16);
+    y0 = Math.min(y0, H * .8);
+    const size = S * lerp(.15, .27, i / 11) * rnd(.92, 1.1);
+    const fam = i < 6 ? goldTo(sp.fam) : sp.fam;                       // gold slowly turns to colour
+    launch({
+      kind: 'ember', x0, y0, x1: tx, y1: ty, dur: rnd(.55, .85), fx: false, wob: S * .002,
+      onBurst: (ex, ey) => explode(ex, ey, {
+        type: sp.type, R: size, n: rnd(240, 330), fam, fam2: sp.fam2, depth: rnd(.92, 1.05),
+        uh: i < 6 ? .24 : 0, crack: sp.type === 'willow' ? .3 : 0, sec: i > 3 ? 2 : 1
+      })
+    });
+  }
+}
+
+// PHASE 4 - coordinated line of rockets
+function phase4(){
+  const n = W < 600 ? 9 : (W < 1000 ? 10 : 11), mid = (n - 1) / 2;
+  for (let i = 0; i < n; i++){
+    const x0 = lerp(W * .07, W * .93, i / (n - 1)) + rnd(-.012, .012) * W;
+    const x1 = x0 + (x0 - W * .5) * .05 + rnd(-.012, .012) * W;
+    const y1 = H * (.31 - .03 * Math.sin(PI * i / (n - 1))) + rnd(-.02, .02) * H;
+    launch({
+      kind: 'line', x0, y0: H * .95, x1, y1, dur: 2.8 + rnd(-.15, .2),
+      delay: rnd(0, .35) + Math.abs(i - mid) * .02, wob: S * .003, bend: rnd(-.01, .01) * W,
+      onBurst: (bx, by) => {
+        if (!finaleStarted){ finaleStarted = true; sustain(); }
+        finaleBurst(i, n, bx, by);
+      }
+    });
+  }
+}
+
+// PHASE 5 - multicolour synchronized finale
+const FIN = [
+  { type: 'chrysanthemum', fam: F.gold,    fam2: F.white,   crack: .2,  n: 380, sec: 4 },
+  { type: 'peony',         fam: F.ruby,    fam2: F.white,               n: 320, sec: 3 },
+  { type: 'chrysanthemum', fam: F.blue,    fam2: F.violet,              n: 340, sec: 3 },
+  { type: 'starburst',     fam: F.emerald, fam2: F.white,               n: 0,   sec: 2 },
+  { type: 'willow',        fam: F.gold,                    crack: .32, n: 420, sec: 2 },
+  { type: 'peony',         fam: F.magenta, fam2: F.violet,              n: 320, sec: 3 },
+  { type: 'chrysanthemum', fam: F.cyan,    fam2: F.white,               n: 320, sec: 2 },
+  { type: 'peony',         fam: F.emerald, fam2: F.gold,                n: 300, sec: 3 },
+  { type: 'chrysanthemum', fam: F.violet,  fam2: F.magenta,             n: 320, sec: 3 },
+  { type: 'chrysanthemum', fam: F.gold,    fam2: F.orange,  crack: .25, n: 360, sec: 3 }
+];
+function finaleBurst(i, n, bx, by){
+  const mid = (n - 1) / 2, dist = Math.abs(i - mid);
+  let spec = FIN[(i * 3 + 1) % FIN.length], k = 1;
+  if (dist < .6){ spec = FIN[0]; k = 1.22; } else if (Math.abs(dist - 3) < .6){ spec = FIN[4]; k = 1.05; }
+  const R0 = Math.max(Math.min(W / n * 1.25, S * .34), S * .16) * k;
+  Sched.after(dist * .07, () => {                                      // ripple outward from centre
+    explode(bx, by, Object.assign({}, spec, { R: R0, depth: 1 }));
+    Sched.after(rnd(.12, .45), () => {                                 // deeper layer behind
+      explode(bx + (Math.random() < .5 ? -1 : 1) * rnd(.9, 1.4) * R0, by + rnd(-.2, .3) * R0, Object.assign({}, pick(FIN), { R: R0 * rnd(.6, .8), depth: rnd(.62, .8), sec: 0 }));
+    });
+  });
+}
+function sustain(){
+  const t0 = Sched.t + 1.0, N = Q.mobile ? 22 : 32; let t = 0;
+  const types = ['chrysanthemum', 'chrysanthemum', 'peony', 'peony', 'willow', 'starburst', 'glitter'];
+  const fams = [F.gold, F.ruby, F.blue, F.emerald, F.magenta, F.violet, F.cyan, F.orange, F.white];
+  for (let k = 0; k < N; k++){
+    t += lerp(.12, .36, k / N) * rnd(.7, 1.3);
+    Sched.at(t0 + t, () => {
+      const big = k % 8 === 5, type = big ? 'willow' : pick(types);
+      explode(rnd(.07, .93) * W, rnd(.13, .42) * H, {
+        type, R: S * rnd(.12, .27) * (big ? 1.4 : 1), n: rnd(170, 290), fam: big ? F.gold : pick(fams), fam2: pick(fams),
+        depth: rnd(.65, 1.05), crack: type === 'willow' ? .25 : 0, sec: Math.random() < .5 ? 1 : 0
+      });
+    });
+  }
+  Sched.at(t0 + t + .5, () => { ending = true; });
+}
+
+// ---- RANDOM continuous fireworks (not a scripted cycle) ----
+const RNG_TYPES = ['chrysanthemum', 'chrysanthemum', 'peony', 'peony', 'willow', 'starburst', 'glitter', 'crackle'];
+const RNG_FAMS = [F.gold, F.ruby, F.blue, F.emerald, F.magenta, F.violet, F.cyan, F.orange, F.white];
+function randomBurst(){
+  const type = pick(RNG_TYPES);
+  const big = Math.random() < 0.18;
+  const x = rnd(0.08, 0.92) * W;
+  const y = rnd(0.12, 0.46) * H;
+  explode(x, y, {
+    type,
+    R: S * rnd(0.13, 0.28) * (big ? 1.45 : 1),
+    n: rnd(180, 320) * (big ? 1.3 : 1),
+    fam: pick(RNG_FAMS),
+    fam2: pick(RNG_FAMS),
+    depth: rnd(0.7, 1.05),
+    crack: type === 'willow' ? 0.28 : (Math.random() < 0.2 ? 0.15 : 0),
+    sec: Math.random() < 0.4 ? 1 : 0
+  });
+}
+// occasionally send up a visible rocket that bursts at the top
+function randomRocket(){
+  const x = rnd(0.15, 0.85) * W;
+  launch({
+    kind: 'line', x0: x, y0: H * 0.96, x1: x + rnd(-0.03, 0.03) * W, y1: rnd(0.14, 0.34) * H,
+    dur: rnd(2.2, 3.0), wob: S * 0.003, bend: rnd(-0.012, 0.012) * W,
+    onBurst: (bx, by) => {
+      const type = pick(RNG_TYPES);
+      explode(bx, by, {
+        type, R: S * rnd(0.16, 0.3), n: rnd(220, 340),
+        fam: pick(RNG_FAMS), fam2: pick(RNG_FAMS), depth: rnd(0.85, 1.05),
+        crack: type === 'willow' ? 0.3 : 0, sec: Math.random() < 0.5 ? 1 : 0, noNudge: true
+      });
+    }
+  });
+}
+let rngTimer = 0;
+function scheduleRandom(){
+  // random gap between fireworks so it never feels like a loop
+  const gap = rnd(0.35, 1.1);
+  rngTimer = Sched.after(gap, () => {
+    if (Math.random() < 0.3) randomRocket();   // some fly up visibly
+    else randomBurst();                        // most just burst in place
+    // occasional quick double/triple for liveliness
+    if (Math.random() < 0.35) Sched.after(rnd(0.1, 0.4), randomBurst);
+    scheduleRandom();
+  });
+}
+function buildShow(){
+  // a couple to open immediately, then an endless random stream
+  randomRocket();
+  Sched.after(0.6, randomBurst);
+  scheduleRandom();
+}
+
+// a ~13s choreographed OPENING: synchronized volley -> a big golden shower that
+// fills the sky -> a swelling wave of colourful bursts everywhere. Then the
+// endless random stream takes over. The parent reveals the message after this.
+function opening(){
+  // 0s: the synchronized line of rockets rises + bursts across the sky
+  volley();
+
+  // ~4s: a grand golden shower that lights the whole screen
+  Sched.after(4.0, () => {
+    const bx = W * 0.5, by = H * 0.28, R = Math.min(S * 0.5, W * 0.5);
+    runBurst('willow', bx, by, { R, n: 760, fam: F.gold, depth: 1, crack: 0.18 });
+    runBurst('chrysanthemum', bx, by, { R: R * 0.6, n: 280, fam: F.gold, fam2: F.white, depth: 1 });
+    runBurst('glitter', bx, by, { R: R * 0.92, n: 70, fam: F.gold, fam2: F.white, depth: 1 });
+    boomSound();
+    // a couple of gold satellites around it
+    for (let i = 0; i < 4; i++) Sched.after(rnd(0.2, 1.3), () => {
+      explode(rnd(0.2, 0.8) * W, rnd(0.14, 0.4) * H, { type: pick(['peony', 'glitter', 'chrysanthemum']), R: S * rnd(0.14, 0.22), n: rnd(140, 220), fam: F.gold, fam2: F.white, depth: rnd(0.8, 1) });
+    });
+  });
+
+  // ~7.5s onward: a swelling wave of COLOURFUL bursts filling the whole screen
+  const COLS = [F.ruby, F.blue, F.emerald, F.magenta, F.violet, F.cyan, F.orange, F.gold];
+  let t = 7.5;
+  for (let k = 0; k < 16; k++){
+    t += lerp(0.5, 0.22, k / 16);   // start spaced, accelerate into a dense peak
+    Sched.at(t, () => {
+      const type = pick(['chrysanthemum', 'peony', 'willow', 'starburst', 'chrysanthemum', 'peony']);
+      explode(rnd(0.08, 0.92) * W, rnd(0.12, 0.46) * H, {
+        type, R: S * rnd(0.18, 0.3), n: rnd(240, 360),
+        fam: pick(COLS), fam2: pick(COLS), depth: rnd(0.85, 1.08),
+        crack: type === 'willow' ? 0.3 : 0, sec: Math.random() < 0.5 ? 1 : 0
+      });
+    });
+  }
+}
+
+// a synchronized line of rockets that rise together from the bottom and burst
+// in a row across the sky — the opening "volley"
+function volley(){
+  const n = W < 600 ? 7 : (W < 1000 ? 9 : 11);
+  for (let i = 0; i < n; i++){
+    const x = lerp(W * 0.08, W * 0.92, i / (n - 1)) + rnd(-0.01, 0.01) * W;
+    const y1 = H * (0.28 - 0.035 * Math.sin(PI * i / (n - 1))) + rnd(-0.015, 0.015) * H;  // gentle arc
+    launch({
+      kind: 'hero', x0: x, y0: H * 1.0, x1: x + rnd(-0.012, 0.012) * W, y1,
+      dur: 3.0 + rnd(-0.1, 0.15), wob: S * 0.002, bend: rnd(-0.008, 0.008) * W,  // slower, statelier rise
+      onBurst: (bx, by) => {
+        const type = pick(['chrysanthemum', 'peony', 'willow']);
+        explode(bx, by, {
+          type, R: S * rnd(0.24, 0.32), n: rnd(300, 420),   // grand, but a touch gentler
+          fam: pick(RNG_FAMS), fam2: pick(RNG_FAMS), depth: rnd(0.95, 1.05),
+          crack: type === 'willow' ? 0.3 : 0, sec: 1, noNudge: true
+        });
+      }
+    });
+  }
+}
+
+/* =====================================================================
+   Simulation + render
+   ===================================================================== */
+function update(dt){
+  const wind = Math.sin(Sched.t * .23) * S * .012 + S * .006;
+  for (let i = rockets.length - 1; i >= 0; i--){ const r = rockets[i]; r.update(dt); if (r.dead) rockets.splice(i, 1); }
+  for (let i = ps.length - 1; i >= 0; i--){
+    const p = ps[i];
+    if (!stepParticle(p, dt, wind)){ ps[i] = ps[ps.length - 1]; ps.pop(); pool.push(p); }
+  }
+  for (let i = smoke.length - 1; i >= 0; i--){
+    const s = smoke[i]; s.age += dt; s.x += (s.vx + wind * .8) * dt; s.y += s.vy * dt;
+    if (s.age >= s.life) smoke.splice(i, 1);
+  }
+  for (let i = flashes.length - 1; i >= 0; i--){ const f = flashes[i]; f.a -= f.decay * dt; if (f.a <= 0) flashes.splice(i, 1); }
+  light *= Math.exp(-1.4 * dt);
+}
+function drawSmoke(){
+  const g = kctx, w = smokeC.width, h = smokeC.height;
+  g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.clearRect(0, 0, w, h);
+  if (!smoke.length) return;
+  const lit = .03 + Math.min(light, 2) * .42;
+  g.globalCompositeOperation = 'lighter';
+  for (const p of smoke){
+    const u = p.age / p.life, rad = (p.r + (p.r1 - p.r) * Math.sqrt(u)) * .5;
+    const a = p.a * (1 - u) * Math.min(1, u * 6 + .15) * lit; if (a < .004) continue;
+    g.globalAlpha = Math.min(a, .6);
+    g.drawImage(smokeSprite, p.x * .5 - rad, p.y * .5 - rad, rad * 2, rad * 2);
+  }
+  g.globalAlpha = 1; g.globalCompositeOperation = 'source-atop';
+  g.fillStyle = `rgba(${tint.r | 0},${tint.g | 0},${tint.b | 0},.55)`; g.fillRect(0, 0, w, h);
+  g.globalCompositeOperation = 'source-over';
+}
+function compose(){
+  const b = bctx, bw = bloomC.width, bh = bloomC.height;
+  b.globalCompositeOperation = 'copy'; b.globalAlpha = 1; b.drawImage(fxC, 0, 0, bw, bh);
+  b.globalCompositeOperation = 'lighter';
+  for (const f of flashes){
+    const r = f.r * BS; b.globalAlpha = Math.min(1, f.a) * .32;   // dimmer bloom -> no sun patch
+    b.drawImage(sprite(f.ci), f.x * BS - r, f.y * BS - r, r * 2, r * 2);
+  }
+  b.globalAlpha = 1;
+  if (false){
+    const gr = b.createLinearGradient(0, bh * .55, 0, bh), a = Math.min(.22, light * .1), c = `${tint.r | 0},${tint.g | 0},${tint.b | 0}`;
+    gr.addColorStop(0, `rgba(${c},0)`); gr.addColorStop(1, `rgba(${c},${a.toFixed(3)})`);
+    b.fillStyle = gr; b.fillRect(0, bh * .55, bw, bh * .45);
+  }
+}
+function render(dt){
+  const g = fctx;
+  g.globalCompositeOperation = 'destination-out';
+  g.fillStyle = `rgba(0,0,0,${(1 - Math.exp(-7.5 * dt)).toFixed(3)})`;
+  g.fillRect(0, 0, W, H);
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < rockets.length; i++) rockets[i].draw(g);
+  drawParticles(g);
+  g.globalCompositeOperation = 'source-over';
+  drawSmoke();
+  compose();
+}
+
+/* =====================================================================
+   Resize
+   ===================================================================== */
+function resize(){
+  W = Math.max(1, window.innerWidth); H = Math.max(1, window.innerHeight);
+  dpr = Math.min(window.devicePixelRatio || 1, Q.dprCap);
+  for (const c of [skyC, fxC, frontC]){ c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
+  fctx.setTransform(dpr, 0, 0, dpr, 0, 0); fctx.lineCap = 'round'; fctx.lineJoin = 'round';
+  smokeC.width = Math.ceil(W / 2); smokeC.height = Math.ceil(H / 2);
+  bloomC.width = Math.ceil(W * BS); bloomC.height = Math.ceil(H * BS);
+  S = Math.min(W / 1.1, H);
+  // embedded: skip drawing this engine's own sky + skyline (host app owns the backdrop)
+}
+let rzT = 0;
+const onResize = () => { cancelAnimationFrame(rzT); rzT = requestAnimationFrame(resize); };
+addEventListener('resize', onResize);
+addEventListener('orientationchange', () => setTimeout(resize, 250));
+
+/* =====================================================================
+   Controls / state
+   ===================================================================== */
+// embedded: controls/title removed — these may be null, so guard everything
+const bStart = $('bStart'), bReplay = $('bReplay'), bPause = $('bPause'), bFull = $('bFull');
+const titleEl = $('title'), titleSub = $('titleSub'), ui = $('ui');
+let state = 'idle';   // idle | running | paused | finished
+
+function setUI(){
+  if (bStart) bStart.disabled = state !== 'idle';
+  if (bReplay) bReplay.disabled = state === 'idle';
+  if (bPause){
+    bPause.disabled = !(state === 'running' || state === 'paused');
+    const paused = state === 'paused';
+    bPause.dataset.s = paused ? 'paused' : 'running';
+    const sp = bPause.querySelector('span'); if (sp) sp.textContent = paused ? 'Resume' : 'Pause';
+    bPause.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
+  }
+  poke();
+}
+let dimT = 0;
+function poke(){
+  if (!ui) return;
+  ui.classList.remove('dim'); clearTimeout(dimT);
+  if (state === 'running') dimT = setTimeout(() => ui.classList.add('dim'), 3200);
+}
+['pointermove', 'pointerdown', 'keydown', 'touchstart'].forEach(e => addEventListener(e, poke, { passive: true }));
+
+function resetScene(){
+  while (ps.length) pool.push(ps.pop());
+  rockets.length = 0; smoke.length = 0; flashes.length = 0; recent.length = 0; Sched.reset();
+  light = 0; ending = false; finaleStarted = false; Q.scale = 1;
+  fctx.globalCompositeOperation = 'source-over';
+  fctx.clearRect(0, 0, W, H); kctx.clearRect(0, 0, smokeC.width, smokeC.height); bctx.clearRect(0, 0, bloomC.width, bloomC.height);
+}
+let wl = null;
+async function wake(){ try { if ('wakeLock' in navigator) wl = await navigator.wakeLock.request('screen'); } catch (e) {} }
+function unwake(){ try { if (wl) wl.release(); } catch (e) {} wl = null; }
+
+function startShow(){
+  resetScene(); buildShow();
+  try { _ac = _ac || new (window.AudioContext || window.webkitAudioContext)(); if (_ac.state === 'suspended') _ac.resume(); } catch (e) {}
+  state = 'running'; if (titleEl) titleEl.classList.add('hide'); wake(); setUI();
+}
+function finish(){
+  // embedded: loop the show so the sky keeps going while she's on the grand finale
+  startShow();
+}
+function togglePause(){
+  if (state === 'running') state = 'paused'; else if (state === 'paused') state = 'running'; else return;
+  setUI();
+}
+function toggleFS(){
+  const d = document, el = d.documentElement;
+  try {
+    if (!(d.fullscreenElement || d.webkitFullscreenElement)){
+      const r = (el.requestFullscreen || el.webkitRequestFullscreen).call(el); if (r && r.catch) r.catch(() => {});
+    } else {
+      const r = (d.exitFullscreen || d.webkitExitFullscreen).call(d); if (r && r.catch) r.catch(() => {});
+    }
+  } catch (e) {}
+}
+if (!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)) bFull.style.display = 'none';
+
+if (bStart) bStart.addEventListener('click', () => { if (state === 'idle') startShow(); });
+if (bReplay) bReplay.addEventListener('click', () => { if (state !== 'idle'){ startShow(); } });
+if (bPause) bPause.addEventListener('click', togglePause);
+if (bFull) bFull.addEventListener('click', toggleFS);
+// pause while the tab is hidden (saves CPU) and auto-resume when it's visible
+// again, so the sky doesn't freeze on a stale frame after a tab switch
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden){ if (state === 'running') togglePause(); }
+  else { if (state === 'paused') togglePause(); try { last = 0; } catch (e) {} }
+});
+
+// embedded API: parent app drives the show via postMessage
+addEventListener('message', (e) => {
+  const cmd = e && e.data && e.data.fw;
+  if (cmd === 'start' || cmd === 'replay') startShow();
+  else if (cmd === 'volley' || cmd === 'opening'){
+    // the choreographed ~13s opening (volley -> golden shower -> colour wave),
+    // THEN the usual endless random stream begins
+    if (state === 'idle'){ resetScene(); state = 'running'; wake(); setUI(); }
+    try { _ac = _ac || new (window.AudioContext || window.webkitAudioContext)(); if (_ac.state === 'suspended') _ac.resume(); } catch (err) {}
+    opening();
+    Sched.after(13.0, buildShow);   // after the opening show, start the random stream
+  }
+  else if (cmd === 'pause') { if (state === 'running') togglePause(); }
+  else if (cmd === 'resume') { if (state === 'paused') togglePause(); }
+});
+// NOTE: no auto-start — the parent sends { fw:'start' } at the right moment
+// (after the "Mahii" name reveal on the first run, or on each celebrate-again)
+
+/* =====================================================================
+   Main loop (requestAnimationFrame, delta-time driven)
+   ===================================================================== */
+let last = 0, ema = .0167, perfT = 0, goodT = 0;
+function perfTick(dt){
+  ema += (dt - ema) * .08; perfT += dt;
+  if (perfT > 1){
+    perfT = 0;
+    if (ema > .026 && Q.scale > .4){ Q.scale = Math.max(.4, Q.scale * .85); goodT = 0; }
+    else if (ema < .019){ if (++goodT > 6 && Q.scale < 1){ Q.scale = Math.min(1, Q.scale * 1.1); goodT = 0; } }
+    else goodT = 0;
+  }
+}
+function frame(ts){
+  requestAnimationFrame(frame);
+  if (!last){ last = ts; return; }
+  let dt = (ts - last) / 1000; last = ts;
+  if (dt <= 0) return; if (dt > .05) dt = .05;
+  if (state !== 'running') return;
+  perfTick(dt); Sched.update(dt); update(dt); render(dt);
+  if (ending && !ps.length && !rockets.length && !Sched.list.length) finish();
+}
+
+resize(); setUI();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

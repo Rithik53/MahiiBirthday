@@ -687,6 +687,13 @@ body.shake { animation: screenShake 0.6s ease; }
 .finale-line.show { animation: lineIn 1.4s cubic-bezier(0.22,1,0.36,1) forwards; }
 @keyframes lineIn { to { opacity: 1; transform: translateY(0); } }
 
+/* the realistic Hanabi fireworks engine, embedded as a transparent backdrop on
+   the grand finale (sits above the sky canvas, below the message + buttons) */
+.fireworks-frame {
+  position: fixed; inset: 0; width: 100%; height: 100%; border: 0;
+  z-index: 3; pointer-events: none; background: transparent;
+}
+
 /* the borrowed garden, embedded as a transparent backdrop behind the message */
 .garden-frame {
   position: fixed; inset: 0; width: 100%; height: 100%; border: 0;

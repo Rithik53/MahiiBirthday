@@ -21,7 +21,7 @@ const CONFIG = {
 
   // ⚙️ DEV ONLY: keeps the finale star unlocked so you don't have to click
   //    through every constellation while building. SET TO false BEFORE SHARING.
-  devUnlockFinale: false,
+  devUnlockFinale: true,
 
   // ---- The song -----------------------------------------------------------
   // Download the song, drop the file in /assets, then put the filename here.
@@ -310,7 +310,7 @@ const CONFIG = {
   // She taps "there's more" after the P.S. and the whole sky goes off.
   grandFinale: {
     //kicker: "okay, THIS is the last one",
-    kicker: "one last thing, birthday girl ♡",
+    kicker: "one last little surprise ✨",
     title: "Happy Birthday",     // herName + 🎂 added automatically
     // one message per celebration (balloons -> stars -> lanterns -> swarm); each
     // "Celebrate again" shows the next. After the last it loops back to the first.
@@ -328,7 +328,7 @@ const CONFIG = {
         "The world's a pretty big place, Mahii. I hope you get to see just how much of it is waiting for you.",
       ],
       [
-        "If the universe is listening, I've got a few requests for you, Mahii. 🏮",
+        "If the universe is listening, I've got a few requests for you, Mahii.",
         "More days that turn out better than you expected. More spontaneous plans that become your favourite memories. More opportunities that make you excited about what's next.",
         "A little luck when you need it most, courage when you need to take a leap, and a few beautiful surprises along the way.",
         "And if the universe could make a few of your biggest wishes come true this year, that would be lovely, too. ♡",
@@ -349,7 +349,7 @@ const CONFIG = {
       "There's more ✨",
       "One more thing →",
       "And another… ☆",
-      "Celebrate again 🎆",
+      "Celebrate again ",
     ],
     // soft instrumental under the fireworks (set to "" for fireworks-only silence)
     song: "assets/grand.mp3",
