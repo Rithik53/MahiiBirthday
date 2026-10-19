@@ -417,9 +417,9 @@
     if (hubSongs) return;
     if (!(CONFIG.songList && CONFIG.songList.length)) { hubSongs = null; return; }
     hubSongs = CONFIG.songList.map((s) => {
-      if (typeof s === "string") return { label: CONFIG.songLabel || "", parts: [s] };
+      if (typeof s === "string") return { label: CONFIG.songLabel || "", parts: [s], vol: 1 };
       const parts = (s.parts && s.parts.length) ? s.parts.slice() : (s.src ? [s.src] : []);
-      return { label: s.label || CONFIG.songLabel || "", parts };
+      return { label: s.label || CONFIG.songLabel || "", parts, vol: (s.vol != null ? s.vol : 1) };
     }).filter((s) => s.parts.length);
     if (!hubSongs.length) hubSongs = null;
   }
@@ -435,6 +435,7 @@
     currentLabel = hubSongs[hubSongIdx] ? hubSongs[hubSongIdx].label : (CONFIG.songLabel || "");
     return true;
   }
+  const hubVol = () => (hubSongs && hubSongs[hubSongIdx] && hubSongs[hubSongIdx].vol != null) ? hubSongs[hubSongIdx].vol : 1;
   // move to the next song in the hub set (fades the next song IN)
   function hubAdvanceSong() {
     if (!hubSongs) return;
@@ -445,7 +446,7 @@
     currentLabel = ns.label;
     try { song.src = ns.parts[0]; } catch (e) { /* ignore */ }
     hubGuard = false;
-    if (musicWanted) fadeInPlay(song, 1200, 250);
+    if (musicWanted) fadeInPlay(song, 1200, 250, hubVol());
   }
   // when a hub part ends: next part is gapless; end of the last part hands off
   song.addEventListener("ended", () => {
@@ -483,7 +484,7 @@
     currentLabel = item.label || "";
     try { chapterAudio.src = item.src; } catch (e) { /* ignore */ }
     trimGuard = false;
-    if (musicWanted) fadeInPlay(chapterAudio, 1200, 250);   // ease the next track in
+    if (musicWanted) fadeInPlay(chapterAudio, 1200, 250, item.vol != null ? item.vol : 1);   // ease the next track in (per-song volume)
   }
   // advance when a track finishes (loop=false during a playlist)
   chapterAudio.addEventListener("ended", () => { if (!trimGuard) advancePlaylist(); });
@@ -612,7 +613,7 @@
       if (!song.src) song.src = CONFIG.songPath;
     }
     if (!musicWanted) return;
-    fadeInPlay(song, 1300, 700);
+    fadeInPlay(song, 1300, 700, hasList ? hubVol() : 1);
     musicReady = true;
   }
   function setMusicUI(playing) {
@@ -656,7 +657,7 @@
     if (song.src && !song.paused) fadeAudio(song, 0, 900, () => { try { song.pause(); } catch (e) {} });
     else { try { song.pause(); } catch (e) {} }
     if (!musicWanted) { setMusicUI(false); return; }
-    fadeInPlay(chapterAudio, 1300, 950);
+    fadeInPlay(chapterAudio, 1300, 950, first.vol != null ? first.vol : 1);   // per-song volume
   }
   // stop the chapter clip and crossfade the global background (hub) song back
   function stopChapterAudio() {
@@ -669,7 +670,7 @@
     if (musicWanted && (CONFIG.songPath || hasList)) {
       if (hasList) hubPrepare();
       else if (!song.src) { song.src = CONFIG.songPath; }
-      fadeInPlay(song, 1300, 600);
+      fadeInPlay(song, 1300, 600, hasList ? hubVol() : 1);
     } else {
       setMusicUI(false);
     }
@@ -707,7 +708,7 @@
   }
   // duck the song down while fireworks are bursting (booms up front), then
   // bring it back to the front once the show is over
-  const GRAND_DUCK = 0.18;             // quiet level during the fireworks (clearly behind)
+  const GRAND_DUCK = 0.25;             // quiet level during the fireworks (clearly behind)
   let grandDucked = false;             // true while the song is held quiet under live fireworks
   function duckGrandMusic() {
     grandDucked = true;
@@ -733,10 +734,11 @@
       // come back at the ducked (quiet) level if fireworks are still live
       fadeInPlay(grandAudio, 600, 0, grandDucked ? GRAND_DUCK : GRAND_VOL);
     } else if (currentChapterSong) {
-      fadeInPlay(chapterAudio, 600);
+      const it = (playlist && playlist[playlistIdx]) ? playlist[playlistIdx] : null;
+      fadeInPlay(chapterAudio, 600, 0, (it && it.vol != null) ? it.vol : 1);
     } else if (CONFIG.songList && CONFIG.songList.length) {
       hubPrepare();
-      fadeInPlay(song, 600);
+      fadeInPlay(song, 600, 0, hubVol());
     } else if (CONFIG.songPath) {
       if (!song.src) song.src = CONFIG.songPath;
       fadeInPlay(song, 600);

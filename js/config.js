@@ -35,7 +35,7 @@ const CONFIG = {
   // If this list is present it takes precedence over songPath on the hub.
   songList: [
     { label: "Dekha Hazaaron Dafaa", parts: ["assets/hub0.mp3"] },
-    { label: "Main Koi Aisa Geet Gaaon", parts: ["assets/hub1.mp3", "assets/hub2.mp3", "assets/hub3.mp3"] },
+    { label: "Main Koi Aisa Geet Gaaon", parts: ["assets/hub1.mp3", "assets/hub2.mp3", "assets/hub3.mp3"], vol: 0.7 },
   ],
 
   // ---- Opening screen -----------------------------------------------------
@@ -296,7 +296,7 @@ const CONFIG = {
     // Dearest Mahii plays these in order, then loops the pair:
     songs: [
       // trimEndMs: stop this clip N ms before its real end and move to the next
-      { src: "assets/finale1.mp3", label: "Aankhon Mein Teri Ajab Si", trimEndMs: 2000 },
+      { src: "assets/finale1.mp3", label: "Aankhon Mein Teri Ajab Si", trimEndMs: 2000, vol: 0.7 },
       { src: "assets/finale.mp3",  label: "Tum Se Hi" },
     ],
     // A self-aware wink at the fact that you go a step too far, and she always

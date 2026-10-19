@@ -110,7 +110,7 @@ body::after {
   height: 100%; width: 100%;
   display: flex; align-items: center; justify-content: center;
   padding: calc(24px + var(--safe-top)) 20px calc(24px + var(--safe-bottom));
-  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;
 }
 
 .scene {
@@ -586,6 +586,7 @@ body::after {
   display: grid;
   place-items: center;
   margin: 6px 0 4px;
+  overflow: hidden;        /* keep scattered stars / streak inside — no sideways scroll */
 }
 .blue-stars { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
 .blue-star {
