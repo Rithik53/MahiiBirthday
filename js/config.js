@@ -261,9 +261,9 @@ const CONFIG = {
   note: "the grin deserves its own mention"
 },
       {
-        text: "I got to know someone with her own little world of favourite things, random interests, sky appreciation, and extremely strong opinions about lot of things and rice.",
-        note: "a surprisingly well-rounded portfolio"
-      },
+  text: "I got to know someone with her own little world of favourite things, random interests, a love for the sky, and some very strong opinions about, well, quite a few things. Rice included, obviously.",
+  note: "a surprisingly well-rounded portfolio"
+},
       {
   text: "It's funny how the little things about someone can stay with you. The way they smile, the things they get excited about, or how they can make an ordinary conversation a little more memorable.",
   note: "funny what you end up remembering ♡"
