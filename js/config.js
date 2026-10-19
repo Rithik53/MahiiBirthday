@@ -158,11 +158,11 @@ const CONFIG = {
       },
       {
         text: "And then there's me, looking up at the very same sky and somehow managing to find absolutely nothing. Not a single star. Zero.",
-        note: "professional star spotter ❌"
+        note: "professional star spotter "
       },
       {
         text: "Meanwhile, you can somehow spot stars even within the city. I genuinely don't understand how you do it. At this point, I think I need you around just to tell me where to look.",
-        note: "human telescope 🔭"
+        note: "human telescope 🔭 or Star fairy"
       },
       {
         text: "It's funny, though. We're looking at the same sky, in the same city, and you're out there finding stars while I'm wondering if that tiny dot is even real.",
@@ -170,11 +170,11 @@ const CONFIG = {
       },
       {
         text: "So when I wanted to make you something a little different for your birthday, the sky felt like the obvious choice. It's something you love, and I thought it'd be nice to bring a little piece of it here for you.",
-        note: "hence, all this 🌌"
+        note: "hence, all this "
       },
       {
-        text: "And who knows, maybe one day you'll point out a star to me and I'll actually manage to find it on the first try. No promises, though.",
-        note: "highly unlikely, honestly 😂"
+      text: "Maybe one day I'll finally learn to spot stars without staring at the sky for ten minutes and questioning every tiny dot I see.",
+      note: "still under training 🔭"
       },
       {
         text: "Until then, you can keep being the person who finds stars in a sky where I see none. I'll stick to looking up and pretending I know what I'm doing.",
@@ -205,7 +205,7 @@ const CONFIG = {
         options: [
           {
             label: "Raipur, obviously 🌾",
-            reply: "Correct. Finally, someone who understands the foundation of this organisation. Your application is progressing nicely."
+            reply: "Correct. You'd be shocked how many people fail question one."
           },
           {
             label: "Random Bangalore supermarket",
@@ -218,24 +218,15 @@ const CONFIG = {
         ],
       },
       {
-        type: "choice",
-        note: "screening: question 2",
-        prompt: "How do we scale distribution nationwide?",
-        options: [
-          {
-            label: "mum's parcels ✈️",
-            reply: "Genius. Zero overhead, premium logistics. Aunty has officially been promoted to Head of National Distribution."
-          },
-          {
-            label: "I smuggle a bag on every flight",
-            reply: "That's literally our current business model. Employee #1 handles logistics, risk management, and questionable airport decisions."
-          },
-          {
-            label: "franchise the whole thing",
-            reply: "Ambitious. I like the vision. We'll discuss equity, expansion, and CB? over a board meeting."
-          },
-        ],
-      },
+          type: "choice",
+          note: "screening: question 2",
+          prompt: "How do we scale distribution nationwide?",
+          options: [
+            { label: "mum's parcels ✈️", reply: "Genius. Zero overhead. Aunty is now Head of Logistics." },
+            { label: "I smuggle a bag on every flight", reply: "That's literally our current model. Employee #1 (me) handles the smuggling." },
+            { label: "franchise the whole thing", reply: "Ambitious. We'll discuss equity over CB?." },
+          ],
+        },
     {
   type: "letter",
   button: "Accept & sign ✍️",
@@ -244,11 +235,11 @@ const CONFIG = {
     tagline: "The finest rice. The finest CEO.",
     heading: "Letter of Employment",
     lines: [
-      "Dear CEO ({her}),",
-      "Congratulations! You've hired your very first employee: <b>Chief Bag-Carrier & Loyal Employee #1</b>.",
-      "Duties: bringing the good stuff from Raipur and reporting for rice-related emergencies.",
-      "Compensation: unlimited rice-related discussions."
-    ],
+              "Dear Founder &amp; CEO ({her}),",
+              "This confirms your very first hire: <b>Chief Bag-Carrier &amp; Loyal Employee #1</b>.",
+              "Duties: hauling rice from Raipur, hyping the brand, and happily working under you, indefinitely.",
+              "Compensation: paid in rice, plus the rare privilege of annoying you daily.",
+            ],
     signature: "Me",
     signRole: "reporting for duty 🙋",
   },
@@ -278,13 +269,13 @@ const CONFIG = {
         note: "case remains open :')"
       },
       {
-        text: "I got to know someone with her own little world of favourite things, random interests, sky appreciation, and extremely strong opinions about rice.",
-        note: "the rice evidence is overwhelming 🌾"
+        text: "I got to know someone with her own little world of favourite things, random interests, sky appreciation, and extremely strong opinions about lot of things and rice.",
+        note: "a surprisingly well-rounded portfolio"
       },
       {
-        text: "And I think that's a nice thing about meeting people. Sometimes someone simply becomes a memorable part of a particular chapter of your life. You don't need to turn it into something else to appreciate that it happened.",
-        note: "some things are nice as they are ♡"
-      },
+  text: "It's funny how the little things about someone can stay with you. The way they smile, the things they get excited about, or how they can make an ordinary conversation a little more memorable.",
+  note: "funny what you end up remembering ♡"
+},
       {
         text: "So, if there's one thing I wanted this little project to do, it's remind you that you're someone worth celebrating. Not because of what you mean to anybody else, but because there's plenty about you that's worth celebrating in its own right.",
         note: "this one's for you ✨"
