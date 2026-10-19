@@ -198,25 +198,16 @@ const CONFIG = {
         note: "welcome, boss 🌾",
         button: "Start onboarding →",
       },
-      {
-        type: "choice",
-        note: "screening: question 1",
-        prompt: "Where does the <em>actually good</em> rice come from? (choose one)",
-        options: [
-          {
-            label: "Raipur, obviously 🌾",
-            reply: "Correct. You'd be shocked how many people fail question one."
-          },
-          {
-            label: "Random Bangalore supermarket",
-            reply: "Wrong. Security has been alerted. Please step away from the aisle and surrender your employee badge."
-          },
-          {
-            label: "somewhere up north?",
-            reply: "Technically a geographical answer. Spiritually, a disaster. Your mum's parcels have saved this company before, and they'll do it again."
-          },
-        ],
-      },
+       {
+          type: "choice",
+          note: "screening: question 1",
+          prompt: "Where does the <em>actually good</em> rice come from? (choose one)",
+          options: [
+            { label: "Raipur, obviously 🌾", reply: "Correct. You'd be shocked how many people fail question one." },
+            { label: "Random Bangalore supermarket", reply: "Wrong. Security's been alerted. Please step away from the aisle." },
+            { label: "somewhere up north?", reply: "Vague… but your mum's parcels forgive you." },
+          ],
+        },
       {
           type: "choice",
           note: "screening: question 2",
@@ -238,7 +229,7 @@ const CONFIG = {
               "Dear Founder &amp; CEO ({her}),",
               "This confirms your very first hire: <b>Chief Bag-Carrier &amp; Loyal Employee #1</b>.",
               "Duties: hauling rice from Raipur, hyping the brand, and happily working under you, indefinitely.",
-              "Compensation: paid in rice, plus the rare privilege of annoying you daily.",
+              "Compensation: paid in rice, plus the rare privilege of annoying you sometimes.",
             ],
     signature: "Me",
     signRole: "reporting for duty 🙋",
