@@ -256,9 +256,10 @@ const CONFIG = {
   note: "you make room for everyone ♡"
 },
       {
-        text: "And that grin of yours. Honestly, I've tried coming up with a sufficiently accurate description, but the research department has made absolutely no progress.",
-        note: "case remains open :')"
-      },
+       
+  text: "And of course, your smile. You have one of those really pretty smiles that you can't help but notice. Especially when you break into that big grin of yours.",
+  note: "the grin deserves its own mention"
+},
       {
         text: "I got to know someone with her own little world of favourite things, random interests, sky appreciation, and extremely strong opinions about lot of things and rice.",
         note: "a surprisingly well-rounded portfolio"
