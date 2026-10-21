@@ -21,7 +21,7 @@ const CONFIG = {
 
   // ⚙️ DEV ONLY: keeps the finale star unlocked so you don't have to click
   //    through every constellation while building. SET TO false BEFORE SHARING.
-  devUnlockFinale: false,
+  devUnlockFinale: true,
 
   // ---- The song -----------------------------------------------------------
   // Download the song, drop the file in /assets, then put the filename here.
